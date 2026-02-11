@@ -1,11 +1,10 @@
 /*
-    Pathfinder v2.5 (The Golden Master)
+    Pathfinder v2.5.1 (The Power User Update)
     -------------------------------------------------
-    Final Features:
-    - Persistent Window: Action buttons remove items from list but keep window open.
-    - Full Tooltip Coverage: Every button explains itself.
-    - Smart visual feedback (List shrinks as you work).
-    - Safety checks maintained.
+    Final Polish:
+    - Added "Select All" / "Select None" buttons for easier list management.
+    - Kept persistent window behavior.
+    - Full Tooltip coverage.
 */
 
 (function(thisObj) {
@@ -13,7 +12,7 @@
     // --- LINGO ---
     var lingo = {
         pt: {
-            title: "Pathfinder v2.5",
+            title: "Pathfinder v2.5.1",
             // Main Panel
             btn_change_root: "📂",
             btn_change_root_tip: "Clique para selecionar a pasta raiz do projeto.",
@@ -37,6 +36,8 @@
             report_title_orphans: "Relatório de Órfãos",
             report_col_name: "Nome do Arquivo",
             report_col_path: "Localização",
+            btn_sel_all: "Selecionar Tudo",
+            btn_sel_none: "Limpar",
             
             // Action Buttons
             btn_reveal_proj: "Selecionar no Projeto",
@@ -68,7 +69,7 @@
             msg_collect_fail: "Falha na operação ou nenhum item processado."
         },
         en: {
-            title: "Pathfinder v2.5",
+            title: "Pathfinder v2.5.1",
             // Main Panel
             btn_change_root: "📂",
             btn_change_root_tip: "Click to select the project root folder.",
@@ -92,6 +93,8 @@
             report_title_orphans: "Orphans Report",
             report_col_name: "File Name",
             report_col_path: "Location",
+            btn_sel_all: "Select All",
+            btn_sel_none: "None",
             
             // Action Buttons
             btn_reveal_proj: "Select in Project",
@@ -124,7 +127,7 @@
         }
     };
     
-    var L = (app.language === Language.PORTUGUESE_BRAZILIAN) ? lingo.en : lingo.pt;
+    var L = (app.language === Language.PORTUGUESE_BRAZILIAN) ? lingo.pt : lingo.en;
 
     // --- FUNÇÕES AUXILIARES ---
     function getShortPath(fullPath) {
@@ -173,7 +176,25 @@
         win.margins = 15;
         win.preferredSize = [800, 400]; 
 
-        // Listbox
+        // --- TOP CONTROLS (Select All / None) ---
+        var topGroup = win.add("group");
+        topGroup.orientation = "row";
+        topGroup.alignment = ["fill", "top"];
+        topGroup.alignChildren = ["right", "center"]; // Alinhado à direita
+        topGroup.margins = 0;
+
+        // Texto explicativo opcional à esquerda
+        var infoTxt = topGroup.add("statictext", undefined, title);
+        infoTxt.alignment = ["fill", "center"];
+        infoTxt.graphics.font = ScriptUI.newFont("Segoe UI", "Bold", 12);
+
+        var btnSelAll = topGroup.add("button", undefined, L.btn_sel_all);
+        btnSelAll.preferredSize = [100, 24];
+        
+        var btnSelNone = topGroup.add("button", undefined, L.btn_sel_none);
+        btnSelNone.preferredSize = [70, 24];
+
+        // --- LISTBOX ---
         var list = win.add("listbox", undefined, [], {
             numberOfColumns: 2, 
             showHeaders: true, 
@@ -206,14 +227,32 @@
         statusText.graphics.font = ScriptUI.newFont("Segoe UI", "Italic", 11);
         statusText.graphics.foregroundColor = statusText.graphics.newPen(statusText.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);
 
-        list.onChange = function() {
-            if (!this.selection) {
+        // --- LISTENERS SELECTION ---
+        var updateStatus = function() {
+            if (!list.selection) {
                 statusText.text = L.sel_none;
-            } else if (this.selection instanceof Array) {
-                statusText.text = this.selection.length + L.sel_multi;
+            } else if (list.selection instanceof Array) {
+                statusText.text = list.selection.length + L.sel_multi;
             } else {
-                statusText.text = L.sel_single + this.selection.text;
+                statusText.text = L.sel_single + list.selection.text;
             }
+        };
+
+        list.onChange = updateStatus;
+
+        btnSelAll.onClick = function() {
+            var allItems = [];
+            for(var i=0; i<list.items.length; i++) {
+                allItems.push(list.items[i]);
+            }
+            list.selection = allItems;
+            updateStatus();
+            list.active = true; // Mantém foco
+        };
+
+        btnSelNone.onClick = function() {
+            list.selection = null;
+            updateStatus();
         };
 
         // Footer
@@ -227,9 +266,6 @@
         leftGroup.orientation = "row";
         leftGroup.alignment = ["left", "center"];
         leftGroup.margins = 0; leftGroup.spacing = 5; 
-
-        var spacer = footerGroup.add("group");
-        spacer.alignment = ["fill", "fill"];
 
         var rightGroup = footerGroup.add("group");
         rightGroup.orientation = "row";
@@ -257,18 +293,9 @@
                 }
             };
             
-            // COLETAR
-            btnCollect.onClick = function() {
-                processRelink("collect", list.selection);
-                // Não fecha janela, apenas atualiza UI
-            };
+            btnCollect.onClick = function() { processRelink("collect", list.selection); };
+            btnRelink.onClick = function() { processRelink("search", list.selection); };
 
-            // AUTO RELINK
-            btnRelink.onClick = function() {
-                processRelink("search", list.selection);
-            };
-
-            // Função Unificada
             function processRelink(mode, selection) {
                 if (!selection) return;
                 if (!(selection instanceof Array)) selection = [selection];
@@ -288,11 +315,10 @@
                 var itemsToRemove = [];
 
                 for (var i = 0; i < selection.length; i++) {
-                    var item = selection[i].data; // FootageItem
+                    var item = selection[i].data; 
                     var oldFile = item.file;
                     if (!oldFile) continue;
 
-                    // BOUNCER
                     if (oldFile.name.match(/\.(psd|ai|pdf)$/i)) {
                         skipped++;
                         continue; 
@@ -322,24 +348,19 @@
                 }
                 app.endUndoGroup();
 
-                // REMOVE ITEMS FROM LISTBOX (Visual Feedback)
                 for (var k = 0; k < itemsToRemove.length; k++) {
                     list.remove(itemsToRemove[k]);
                 }
 
-                // Monta mensagem
                 var msg = (mode === "collect") ? L.msg_collect_success : L.msg_relink_success;
                 msg = msg.replace("{0}", count);
 
                 if (skipped > 0) msg += L.msg_skip_layer.replace("{0}", skipped);
                 if (notFound > 0) msg += L.msg_relink_fail.replace("{0}", notFound);
 
-                // Só avisa se processou algo ou deu erro
                 if (count > 0 || skipped > 0 || notFound > 0) {
                     alert(msg);
                 }
-
-                // Atualiza status do dashboard principal em background
                 runFullAudit(); 
             }
 
@@ -394,14 +415,11 @@
                 }
                 app.endUndoGroup();
 
-                // REMOVE IMPORTED ITEMS FROM LISTBOX
                 for (var k = 0; k < itemsToRemove.length; k++) {
                     list.remove(itemsToRemove[k]);
                 }
 
                 alert(L.msg_import_success.replace("{0}", count));
-                
-                // Atualiza background
                 runFullAudit();
             };
         }
@@ -522,7 +540,6 @@
         }
 
         monitoringPathText.text = L.monitoring_path.replace("{0}", getShortPath(currentBasePath));
-        // AQUI ESTÁ O TOOLTIP DO CAMINHO COMPLETO:
         monitoringPathText.helpTip = L.monitoring_path_tip.replace("{0}", currentBasePath);
 
         var normalizedBasePath = decodeURI(currentBasePath).toLowerCase().replace(/[\\\/]$/, "");
