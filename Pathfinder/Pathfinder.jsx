@@ -1,18 +1,21 @@
 /*
-    Pathfinder v2.0
+    Pathfinder v2.2.1 (The Stretchy Update)
     -------------------------------------------------
-    The Unified Dashboard - Official Baseline
+    Fixes:
+    - Project Item Selection Logic
+    - Dynamic Resizing of Report Window
+    - Correct Localization (EN/PT)
 */
 
 (function(thisObj) {
 
-    // Objeto Lingo completo
+    // --- LINGO ---
     var lingo = {
         pt: {
-            title: "Pathfinder v2.0",
-            btn_change_root: "📂", // Pasta
+            title: "Pathfinder v2.2",
+            btn_change_root: "📂",
             btn_change_root_tip: "Mudar Pasta Raiz...",
-            btn_refresh: "↻", // Refresh
+            btn_refresh: "↻",
             btn_refresh_tip: "Atualizar Status",
             status_panel_title: "Status da Auditoria",
             attention_strays: "ATENÇÃO: {0} arquivos fujões encontrados!",
@@ -22,10 +25,20 @@
             monitoring_path: "Monitorando: {0}",
             btn_list_strays: "Listar Fujões...",
             btn_list_orphans: "Listar Órfãos...",
-            alert_save_project: "Por favor, salve seu projeto para continuar."
+            alert_save_project: "Salve o projeto para detectar a pasta automaticamente ou defina uma manualmente.",
+            // Report Window
+            report_title_strays: "Relatório de Fujões",
+            report_title_orphans: "Relatório de Órfãos",
+            report_col_name: "Nome do Arquivo",
+            report_col_path: "Caminho (Resumido)",
+            btn_reveal_proj: "Selecionar no Projeto",
+            btn_reveal_finder: "Revelar no Explorer/Finder",
+            btn_action_collect: "Coletar para Pasta (Em Breve)",
+            btn_action_import: "Importar Selecionados (Em Breve)",
+            btn_close: "Fechar"
         },
         en: {
-            title: "Pathfinder v2.0",
+            title: "Pathfinder v2.2",
             btn_change_root: "📂",
             btn_change_root_tip: "Change Root Folder...",
             btn_refresh: "↻",
@@ -38,15 +51,25 @@
             monitoring_path: "Monitoring: {0}",
             btn_list_strays: "List Strays...",
             btn_list_orphans: "List Orphans...",
-            alert_save_project: "Please save your project to continue."
+            alert_save_project: "Save project to detect folder automatically or set one manually.",
+            // Report Window
+            report_title_strays: "Strays Report",
+            report_title_orphans: "Orphans Report",
+            report_col_name: "File Name",
+            report_col_path: "Path (Short)",
+            btn_reveal_proj: "Select in Project",
+            btn_reveal_finder: "Reveal in Explorer/Finder",
+            btn_action_collect: "Collect to Folder (Soon)",
+            btn_action_import: "Import Selected (Soon)",
+            btn_close: "Close"
         }
     };
     
-    // Detecção de idioma mais segura
     var L = (app.language === Language.PORTUGUESE_BRAZILIAN) ? lingo.pt : lingo.en;
 
     // --- FUNÇÕES AUXILIARES ---
     function getShortPath(fullPath) {
+        if (!fullPath) return "...";
         var separator = $.os.indexOf("Windows") > -1 ? "\\" : "/";
         var parts = fullPath.split(separator);
         if (parts.length <= 4) return fullPath;
@@ -62,7 +85,6 @@
         for (var i = 0; i < filesAndFolders.length; i++) {
             var currentItem = filesAndFolders[i];
             if (currentItem instanceof File) {
-                // Filtra arquivos de sistema invisíveis comuns
                 if (currentItem.name.indexOf(".") !== 0) { 
                     fileList.push(currentItem);
                 }
@@ -73,7 +95,115 @@
         return fileList;
     }
 
-    // --- CONSTRUÇÃO DA UI ---
+    // --- REPORT WINDOW GENERATOR ---
+    function buildReportWindow(title, dataArray, type) {
+        var win = new Window("dialog", title, undefined, {resizeable: true});
+        win.orientation = "column";
+        win.alignChildren = ["fill", "fill"]; // Garante que filhos preencham espaço
+        win.spacing = 10;
+        win.margins = 15;
+
+        // ListBox Header
+        var list = win.add("listbox", undefined, [], {
+            numberOfColumns: 2, 
+            showHeaders: true, 
+            columnTitles: [L.report_col_name, L.report_col_path],
+            multiselect: true
+        });
+        
+        // MÁGICA DO REDIMENSIONAMENTO:
+        list.alignment = ["fill", "fill"]; // Estica horizontal e verticalmente
+        list.preferredSize = [600, 300];   // Tamanho inicial mínimo
+
+        // Populate List
+        for (var i = 0; i < dataArray.length; i++) {
+            var itemData = dataArray[i];
+            var name, fullPath;
+            
+            if (type === "stray") {
+                name = itemData.name;
+                fullPath = itemData.file.fsName;
+            } else {
+                name = itemData.name;
+                fullPath = itemData.fsName;
+            }
+
+            var entry = list.add("item", name);
+            entry.subItems[0].text = getShortPath(fullPath);
+            entry.data = itemData; 
+        }
+
+        // Action Buttons Group
+        var btnGroup = win.add("group");
+        btnGroup.orientation = "row";
+        btnGroup.alignment = "center";
+        btnGroup.alignChildren = ["center", "center"];
+
+        if (type === "stray") {
+            // Ações para Fujões
+            var btnReveal = btnGroup.add("button", undefined, L.btn_reveal_proj);
+            var btnCollect = btnGroup.add("button", undefined, L.btn_action_collect);
+            
+            btnReveal.onClick = function() {
+                if (list.selection) {
+                    var sel = list.selection;
+                    if (!(sel instanceof Array)) sel = [sel];
+                    
+                    // Passo 1: Limpar seleção atual do AE (Workaround para Read-Only)
+                    var currentSel = app.project.selection;
+                    for (var c = 0; c < currentSel.length; c++) {
+                        currentSel[c].selected = false;
+                    }
+
+                    // Passo 2: Selecionar novos itens
+                    for(var k=0; k<sel.length; k++) {
+                        var itemToSelect = sel[k].data;
+                        try {
+                            itemToSelect.selected = true;
+                        } catch(e) {
+                            // Ignora erro se item não existir mais
+                        }
+                    }
+                    // win.close(); // Se quiser fechar ao selecionar, descomente
+                }
+            };
+
+            btnCollect.enabled = false;
+
+        } else {
+            // Ações para Órfãos
+            var btnFinder = btnGroup.add("button", undefined, L.btn_reveal_finder);
+            var btnImport = btnGroup.add("button", undefined, L.btn_action_import);
+
+            btnFinder.onClick = function() {
+                 if (list.selection) {
+                    var sel = list.selection;
+                    if (sel instanceof Array) sel = sel[0];
+                    var fileObj = sel.data;
+                    
+                    if (fileObj.parent) {
+                        fileObj.parent.execute();
+                    } else {
+                        fileObj.execute();
+                    }
+                 }
+            };
+            
+            btnImport.enabled = false;
+        }
+
+        var closeBtn = win.add("button", undefined, L.btn_close);
+        closeBtn.alignment = "right";
+        closeBtn.onClick = function() { win.close(); };
+
+        // Força atualização do layout ao redimensionar
+        win.onResizing = win.onResize = function() { this.layout.resize(); };
+
+        win.center();
+        win.show();
+    }
+
+    // --- UI BUILD PRINCIPAL ---
     var pal = (thisObj instanceof Panel) ? thisObj : new Window("palette", L.title, undefined, { resizeable: true });
     if (pal === null) return;
 
@@ -83,12 +213,12 @@
     pal.spacing = 10;
     pal.margins = 15;
 
-    // --- Variáveis Globais do Painel ---
-    var currentBasePath = "";
-    var currentStrayItems = []; // Array de FootageItems (AE)
-    var currentOrphanFiles = []; // Array de File objects (Disco)
+    // --- ESTADO GLOBAL ---
+    var currentBasePath = (app.project.file) ? app.project.file.parent.fsName : "";
+    var currentStrayItems = []; 
+    var currentOrphanFiles = [];
 
-    // --- GRUPO 1: CABEÇALHO ---
+    // --- CABEÇALHO ---
     var headerGroup = pal.add("group");
     headerGroup.orientation = "row";
     headerGroup.alignChildren = ["left", "center"];
@@ -96,30 +226,28 @@
     var titleText = headerGroup.add("statictext", undefined, L.title);
     titleText.graphics.font = ScriptUI.newFont("Segoe UI", "Bold", 14);
     
-    headerGroup.add("panel", [0, 0, 1, 1], ""); // Spacer elástico
+    headerGroup.add("panel", [0, 0, 1, 1], ""); 
 
-    // Botão Mudar Pasta
     var changeRootBtn = headerGroup.add("button", undefined, L.btn_change_root);
     changeRootBtn.preferredSize = [30, 25];
     changeRootBtn.helpTip = L.btn_change_root_tip;
     
-    // Botão Atualizar
     var refreshBtn = headerGroup.add("button", undefined, L.btn_refresh);
     refreshBtn.preferredSize = [30, 25];
     refreshBtn.helpTip = L.btn_refresh_tip;
 
-    // --- GRUPO 2: PAINEL DE STATUS ---
+    // --- STATUS ---
     var statusGroup = pal.add("panel", undefined, L.status_panel_title);
     statusGroup.alignChildren = ["fill", "top"];
     statusGroup.spacing = 5;
     
-    var monitoringPathText = statusGroup.add("statictext", undefined, "Monitorando: ...", { truncate: "middle" });
+    var monitoringPathText = statusGroup.add("statictext", undefined, L.monitoring_path.replace("{0}", "..."), { truncate: "middle" });
     monitoringPathText.graphics.foregroundColor = monitoringPathText.graphics.newPen(monitoringPathText.graphics.PenType.SOLID_COLOR, [0.5, 0.5, 0.5], 1);
 
     var straysStatusText = statusGroup.add("statictext", undefined, "Status Fujões: --", { multiline: true });
     var orphansStatusText = statusGroup.add("statictext", undefined, "Status Órfãos: --", { multiline: true });
 
-    // --- GRUPO 3: PAINEL DE AÇÕES ---
+    // --- AÇÕES ---
     var actionsGroup = pal.add("group");
     actionsGroup.orientation = "row";
     actionsGroup.alignment = "center";
@@ -130,56 +258,62 @@
     listStraysBtn.enabled = false;
     listOrphansBtn.enabled = false;
 
-    // --- LÓGICA DO BOTÃO MUDAR PASTA (Stub) ---
+    // --- LISTENERS ---
     changeRootBtn.onClick = function() { 
-        var newFolder = Folder.selectDialog(L.btn_change_root_tip);
+        var defaultFolder = currentBasePath ? new Folder(currentBasePath) : Folder.myDocuments;
+        var newFolder = defaultFolder.selectDlg(L.btn_change_root_tip);
         if (newFolder) {
             currentBasePath = newFolder.fsName;
-            runFullAudit(true); // Força auditoria com novo caminho
+            runFullAudit(); 
         }
     };
 
-    // --- MOTOR PRINCIPAL ---
-    function runFullAudit(manualOverride) {
-        var proj = app.project;
-        if (!proj || !proj.file) {
-            // Se o projeto não foi salvo, não dá pra adivinhar o caminho, 
-            // a não ser que o usuário tenha setado manualmente.
-            if (!currentBasePath) {
-                alert(L.alert_save_project);
-                return;
-            }
-        } else {
-            // Se não houve override manual, usa o caminho do projeto
-            if (!manualOverride) {
-                currentBasePath = proj.file.parent.fsName;
-            }
+    refreshBtn.onClick = function() { runFullAudit(); };
+
+    // Correção dos títulos usando Lingo
+    listStraysBtn.onClick = function() { 
+        buildReportWindow(L.report_title_strays, currentStrayItems, "stray"); 
+    };
+
+    listOrphansBtn.onClick = function() { 
+        buildReportWindow(L.report_title_orphans, currentOrphanFiles, "orphan"); 
+    };
+
+    // --- CORE AUDIT ---
+    function runFullAudit() {
+        if (!currentBasePath && app.project.file) {
+            currentBasePath = app.project.file.parent.fsName;
+        }
+
+        if (!currentBasePath) {
+            monitoringPathText.text = L.monitoring_path.replace("{0}", "N/A");
+            straysStatusText.text = L.alert_save_project;
+            orphansStatusText.text = "";
+            return;
         }
 
         monitoringPathText.text = L.monitoring_path.replace("{0}", getShortPath(currentBasePath));
-
         var normalizedBasePath = decodeURI(currentBasePath).toLowerCase().replace(/[\\\/]$/, "");
         
-        // 1. Achar Fujões (Strays) - Itens do AE fora da pasta
+        // 1. FUJÕES
+        var proj = app.project;
         currentStrayItems = [];
-        var projectFilesMap = {}; // Mapa para checagem rápida de órfãos depois
+        var projectFilesMap = {}; 
 
         for (var i = 1; i <= proj.numItems; i++) {
-            var currentItem = proj.item(i);
-            if (currentItem instanceof FootageItem && currentItem.file !== null) {
-                // Ignora sequências de imagens para não poluir (podemos melhorar isso depois)
-                if (currentItem.mainSource instanceof FileSource) {
-                    var footagePath = decodeURI(currentItem.file.fsName);
-                    projectFilesMap[footagePath.toLowerCase()] = true; // Marca como "Usado"
+            var item = proj.item(i);
+            if (item instanceof FootageItem && item.file !== null) {
+                if (item.mainSource instanceof FileSource) {
+                    var footagePath = decodeURI(item.file.fsName);
+                    projectFilesMap[footagePath.toLowerCase()] = true;
                     
                     if (footagePath.toLowerCase().indexOf(normalizedBasePath) !== 0) {
-                        currentStrayItems.push(currentItem);
+                        currentStrayItems.push(item);
                     }
                 }
             }
         }
 
-        // Atualiza UI Fujões
         if (currentStrayItems.length > 0) {
             straysStatusText.text = L.attention_strays.replace("{0}", currentStrayItems.length);
             listStraysBtn.enabled = true;
@@ -188,14 +322,12 @@
             listStraysBtn.enabled = false;
         }
 
-        // 2. Achar Órfãos (Orphans) - Arquivos na pasta não usados no AE
+        // 2. ÓRFÃOS
         currentOrphanFiles = [];
         var diskFiles = getAllFilesRecursive(new Folder(currentBasePath));
         
         for (var i = 0; i < diskFiles.length; i++) {
             var diskPath = decodeURI(diskFiles[i].fsName).toLowerCase();
-            
-            // Se NÃO está no mapa de arquivos usados E não é o próprio projeto (.aep)
             if (!projectFilesMap[diskPath]) {
                 if (diskFiles[i].name.indexOf(".aep") === -1 && 
                     diskFiles[i].name.toLowerCase() !== "thumbs.db" && 
@@ -206,7 +338,6 @@
             }
         }
 
-        // Atualiza UI Órfãos
         if (currentOrphanFiles.length > 0) {
             orphansStatusText.text = L.attention_orphans.replace("{0}", currentOrphanFiles.length);
             listOrphansBtn.enabled = true;
@@ -218,15 +349,8 @@
         pal.layout.layout(true);
     }
 
-    refreshBtn.onClick = function() { runFullAudit(false); };
-    
-    // Stubs para as janelas de relatório
-    listStraysBtn.onClick = function() { alert("Janela de Fujões: " + currentStrayItems.length + " itens."); };
-    listOrphansBtn.onClick = function() { alert("Janela de Órfãos: " + currentOrphanFiles.length + " arquivos."); };
-
-    // Inicializa se possível
     if (app.project.file) {
-        runFullAudit(false);
+        runFullAudit();
     }
 
     pal.layout.layout(true);
