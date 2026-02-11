@@ -1,10 +1,11 @@
 /*
-    Pathfinder v2.4 (The Search & Rescue Update)
+    Pathfinder v2.5 (The Golden Master)
     -------------------------------------------------
-    New Feature:
-    - Auto Relink (Search): Scans the root folder for missing files 
-      and relinks them if found (useful if you manually moved files).
-    - Maintains the "Bouncer" safety (Skips PSD/AI/PDF).
+    Final Features:
+    - Persistent Window: Action buttons remove items from list but keep window open.
+    - Full Tooltip Coverage: Every button explains itself.
+    - Smart visual feedback (List shrinks as you work).
+    - Safety checks maintained.
 */
 
 (function(thisObj) {
@@ -12,80 +13,118 @@
     // --- LINGO ---
     var lingo = {
         pt: {
-            title: "Pathfinder v2.4",
+            title: "Pathfinder v2.5",
+            // Main Panel
             btn_change_root: "📂",
-            btn_change_root_tip: "Mudar Pasta Raiz...",
+            btn_change_root_tip: "Clique para selecionar a pasta raiz do projeto.",
             btn_refresh: "↻",
-            btn_refresh_tip: "Atualizar Status",
+            btn_refresh_tip: "Forçar uma nova verificação da pasta.",
             status_panel_title: "Status da Auditoria",
             attention_strays: "ATENÇÃO: {0} arquivos fujões encontrados!",
             perfect_strays: "Perfeito: Nenhum arquivo fujão.",
             attention_orphans: "ATENÇÃO: {0} arquivos órfãos encontrados!",
             perfect_orphans: "Perfeito: Nenhum arquivo órfão na pasta.",
             monitoring_path: "Monitorando: {0}",
+            monitoring_path_tip: "Caminho completo: {0}",
             btn_list_strays: "Listar Fujões...",
+            btn_list_strays_tip: "Ver lista de arquivos usados no AE que estão fora da pasta raiz.",
             btn_list_orphans: "Listar Órfãos...",
+            btn_list_orphans_tip: "Ver lista de arquivos na pasta que não foram importados.",
             alert_save_project: "Salve o projeto para detectar a pasta automaticamente ou defina uma manualmente.",
+            
             // Report Window
             report_title_strays: "Relatório de Fujões",
             report_title_orphans: "Relatório de Órfãos",
             report_col_name: "Nome do Arquivo",
             report_col_path: "Localização",
+            
+            // Action Buttons
             btn_reveal_proj: "Selecionar no Projeto",
+            btn_reveal_proj_tip: "Destaca os itens selecionados no painel Project do After Effects.",
+            
             btn_reveal_finder: "Revelar no Explorer/Finder",
+            btn_reveal_finder_tip: "Abre a pasta do arquivo no sistema operacional.",
+            
             btn_action_collect: "Coletar (Copiar)",
+            btn_action_collect_tip: "Copia os arquivos para a pasta '_Collected_Strays' e reconecta. (Seguro para render)",
+            
             btn_action_relink: "Auto Relink (Buscar)",
+            btn_action_relink_tip: "Busca arquivos com o mesmo nome dentro da pasta raiz e reconecta. (Não move arquivos)",
+            
             btn_action_import: "Importar Selecionados",
+            btn_action_import_tip: "Importa os arquivos para a pasta '_Pathfinder_Imports' no After Effects.",
+            
             btn_close: "Fechar",
+            
+            // Status & Messages
             sel_none: "Nenhum item selecionado",
             sel_single: "Selecionado: ",
             sel_multi: " itens selecionados",
-            msg_import_success: "{0} arquivos importados para a pasta '_Pathfinder_Imports'.",
+            msg_import_success: "{0} arquivos importados com sucesso.",
             msg_collect_success: "{0} arquivos coletados com sucesso.",
             msg_relink_success: "{0} arquivos reconectados com sucesso.",
             msg_skip_layer: "\n{0} arquivos ignorados (PSD/AI com camadas).",
             msg_relink_fail: "\n{0} arquivos não foram encontrados na pasta raiz.",
-            msg_collect_fail: "Falha na operação."
+            msg_collect_fail: "Falha na operação ou nenhum item processado."
         },
         en: {
-            title: "Pathfinder v2.4",
+            title: "Pathfinder v2.5",
+            // Main Panel
             btn_change_root: "📂",
-            btn_change_root_tip: "Change Root Folder...",
+            btn_change_root_tip: "Click to select the project root folder.",
             btn_refresh: "↻",
-            btn_refresh_tip: "Refresh Status",
+            btn_refresh_tip: "Force a re-scan of the folder.",
             status_panel_title: "Audit Status",
             attention_strays: "ATTENTION: {0} stray files found!",
             perfect_strays: "Perfect: No stray files found.",
             attention_orphans: "ATTENTION: {0} orphan files found!",
             perfect_orphans: "Perfect: No orphan files in folder.",
             monitoring_path: "Monitoring: {0}",
+            monitoring_path_tip: "Full path: {0}",
             btn_list_strays: "List Strays...",
+            btn_list_strays_tip: "View list of files used in AE that are outside the root folder.",
             btn_list_orphans: "List Orphans...",
+            btn_list_orphans_tip: "View list of files in the folder that are not imported.",
             alert_save_project: "Save project to detect folder automatically or set one manually.",
+            
             // Report Window
             report_title_strays: "Strays Report",
             report_title_orphans: "Orphans Report",
             report_col_name: "File Name",
             report_col_path: "Location",
+            
+            // Action Buttons
             btn_reveal_proj: "Select in Project",
+            btn_reveal_proj_tip: "Highlights selected items in the After Effects Project Panel.",
+            
             btn_reveal_finder: "Reveal in Explorer/Finder",
+            btn_reveal_finder_tip: "Opens the file location in your OS.",
+            
             btn_action_collect: "Collect (Copy)",
+            btn_action_collect_tip: "Copies files to '_Collected_Strays' folder and relinks them. (Render safe)",
+            
             btn_action_relink: "Auto Relink (Search)",
+            btn_action_relink_tip: "Searches root folder for matching filenames and relinks. (Does not move files)",
+            
             btn_action_import: "Import Selected",
+            btn_action_import_tip: "Imports files into '_Pathfinder_Imports' folder in After Effects.",
+            
             btn_close: "Close",
+            
+            // Status & Messages
             sel_none: "No items selected",
             sel_single: "Selected: ",
             sel_multi: " items selected",
-            msg_import_success: "{0} files imported to '_Pathfinder_Imports' bin.",
+            msg_import_success: "{0} files imported successfully.",
             msg_collect_success: "{0} files collected successfully.",
             msg_relink_success: "{0} files relinked successfully.",
             msg_skip_layer: "\n{0} files skipped (Layered PSD/AI).",
             msg_relink_fail: "\n{0} files not found in root folder.",
-            msg_collect_fail: "Operation failed."
+            msg_collect_fail: "Operation failed or no items processed."
         }
     };
     
-    var L = (app.language === Language.PORTUGUESE_BRAZILIAN) ? lingo.pt : lingo.en;
+    var L = (app.language === Language.PORTUGUESE_BRAZILIAN) ? lingo.en : lingo.pt;
 
     // --- FUNÇÕES AUXILIARES ---
     function getShortPath(fullPath) {
@@ -115,11 +154,9 @@
         return fileList;
     }
 
-    // Função para buscar arquivo pelo nome dentro de uma pasta (recursivo)
     function findFileByName(rootFolder, fileNameToFind) {
         var allFiles = getAllFilesRecursive(rootFolder);
         for (var i = 0; i < allFiles.length; i++) {
-            // Decodifica para garantir match (ex: espaço vs %20)
             if (decodeURI(allFiles[i].name) === decodeURI(fileNameToFind)) {
                 return allFiles[i];
             }
@@ -134,7 +171,7 @@
         win.alignChildren = ["fill", "fill"];
         win.spacing = 5;
         win.margins = 15;
-        win.preferredSize = [800, 400]; // Um pouco mais largo para caber 3 botões
+        win.preferredSize = [800, 400]; 
 
         // Listbox
         var list = win.add("listbox", undefined, [], {
@@ -202,8 +239,13 @@
         // --- BUTTONS LOGIC ---
         if (type === "stray") {
             var btnReveal = leftGroup.add("button", undefined, L.btn_reveal_proj);
+            btnReveal.helpTip = L.btn_reveal_proj_tip;
+
             var btnCollect = leftGroup.add("button", undefined, L.btn_action_collect);
-            var btnRelink = leftGroup.add("button", undefined, L.btn_action_relink); // NOVO BOTÃO
+            btnCollect.helpTip = L.btn_action_collect_tip;
+
+            var btnRelink = leftGroup.add("button", undefined, L.btn_action_relink);
+            btnRelink.helpTip = L.btn_action_relink_tip;
             
             btnReveal.onClick = function() {
                 if (list.selection) {
@@ -215,21 +257,18 @@
                 }
             };
             
-            // LÓGICA COLETAR (Copia e Relinka)
+            // COLETAR
             btnCollect.onClick = function() {
                 processRelink("collect", list.selection);
-                win.close();
-                runFullAudit();
+                // Não fecha janela, apenas atualiza UI
             };
 
-            // LÓGICA AUTO RELINK (Busca e Relinka)
+            // AUTO RELINK
             btnRelink.onClick = function() {
                 processRelink("search", list.selection);
-                win.close();
-                runFullAudit();
             };
 
-            // Função Unificada de Processamento
+            // Função Unificada
             function processRelink(mode, selection) {
                 if (!selection) return;
                 if (!(selection instanceof Array)) selection = [selection];
@@ -246,37 +285,47 @@
                 var count = 0;
                 var skipped = 0;
                 var notFound = 0;
+                var itemsToRemove = [];
 
                 for (var i = 0; i < selection.length; i++) {
                     var item = selection[i].data; // FootageItem
                     var oldFile = item.file;
                     if (!oldFile) continue;
 
-                    // BOUNCER (Segurança)
+                    // BOUNCER
                     if (oldFile.name.match(/\.(psd|ai|pdf)$/i)) {
                         skipped++;
                         continue; 
                     }
 
+                    var success = false;
                     if (mode === "collect") {
-                        // Modo 1: Copiar para pasta coletada
                         var newFile = new File(collectDir.fsName + "/" + oldFile.name);
                         if (oldFile.copy(newFile.fsName)) {
                             item.replace(newFile);
-                            count++;
+                            success = true;
                         }
                     } else {
-                        // Modo 2: Buscar na raiz
                         var foundFile = findFileByName(rootDir, oldFile.name);
                         if (foundFile && foundFile.exists) {
                             item.replace(foundFile);
-                            count++;
+                            success = true;
                         } else {
                             notFound++;
                         }
                     }
+
+                    if (success) {
+                        count++;
+                        itemsToRemove.push(selection[i]);
+                    }
                 }
                 app.endUndoGroup();
+
+                // REMOVE ITEMS FROM LISTBOX (Visual Feedback)
+                for (var k = 0; k < itemsToRemove.length; k++) {
+                    list.remove(itemsToRemove[k]);
+                }
 
                 // Monta mensagem
                 var msg = (mode === "collect") ? L.msg_collect_success : L.msg_relink_success;
@@ -285,13 +334,22 @@
                 if (skipped > 0) msg += L.msg_skip_layer.replace("{0}", skipped);
                 if (notFound > 0) msg += L.msg_relink_fail.replace("{0}", notFound);
 
-                alert(msg);
+                // Só avisa se processou algo ou deu erro
+                if (count > 0 || skipped > 0 || notFound > 0) {
+                    alert(msg);
+                }
+
+                // Atualiza status do dashboard principal em background
+                runFullAudit(); 
             }
 
         } else {
             // ORPHANS
             var btnFinder = leftGroup.add("button", undefined, L.btn_reveal_finder);
+            btnFinder.helpTip = L.btn_reveal_finder_tip;
+
             var btnImport = leftGroup.add("button", undefined, L.btn_action_import);
+            btnImport.helpTip = L.btn_action_import_tip;
 
             btnFinder.onClick = function() {
                  if (list.selection) {
@@ -320,6 +378,8 @@
 
                 app.beginUndoGroup("Pathfinder: Import Orphans");
                 var count = 0;
+                var itemsToRemove = [];
+
                 for (var i = 0; i < sel.length; i++) {
                     var fileObj = sel[i].data;
                     try {
@@ -328,13 +388,20 @@
                             var newItem = app.project.importFile(io);
                             newItem.parentFolder = targetBin;
                             count++;
+                            itemsToRemove.push(sel[i]);
                         }
                     } catch(e) {}
                 }
                 app.endUndoGroup();
 
+                // REMOVE IMPORTED ITEMS FROM LISTBOX
+                for (var k = 0; k < itemsToRemove.length; k++) {
+                    list.remove(itemsToRemove[k]);
+                }
+
                 alert(L.msg_import_success.replace("{0}", count));
-                win.close();
+                
+                // Atualiza background
                 runFullAudit();
             };
         }
@@ -413,7 +480,10 @@
     actionsGroup.alignment = "center";
     
     var listStraysBtn = actionsGroup.add("button", undefined, L.btn_list_strays);
+    listStraysBtn.helpTip = L.btn_list_strays_tip;
+
     var listOrphansBtn = actionsGroup.add("button", undefined, L.btn_list_orphans);
+    listOrphansBtn.helpTip = L.btn_list_orphans_tip;
     
     listStraysBtn.enabled = false;
     listOrphansBtn.enabled = false;
@@ -452,6 +522,9 @@
         }
 
         monitoringPathText.text = L.monitoring_path.replace("{0}", getShortPath(currentBasePath));
+        // AQUI ESTÁ O TOOLTIP DO CAMINHO COMPLETO:
+        monitoringPathText.helpTip = L.monitoring_path_tip.replace("{0}", currentBasePath);
+
         var normalizedBasePath = decodeURI(currentBasePath).toLowerCase().replace(/[\\\/]$/, "");
         
         // 1. FUJÕES
