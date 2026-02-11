@@ -1,10 +1,10 @@
 /*
-    Pathfinder v2.2.4 (The Feedback Update)
+    Pathfinder v2.3.1 (The Safety Net Update)
     -------------------------------------------------
     Fixes:
-    - Added Selection Status Text (Visual Feedback)
-    - Forced Focus on Listbox (To try and trigger active OS highlight color)
-    - Clean Layout maintained
+    - Added safety check in "Collect" action.
+    - Skips .psd, .ai, .pdf files to prevent losing layer selection on relink.
+    - Updated alert messages to report skipped files.
 */
 
 (function(thisObj) {
@@ -12,7 +12,7 @@
     // --- LINGO ---
     var lingo = {
         pt: {
-            title: "Pathfinder v2.2",
+            title: "Pathfinder v2.3",
             btn_change_root: "📂",
             btn_change_root_tip: "Mudar Pasta Raiz...",
             btn_refresh: "↻",
@@ -33,15 +33,19 @@
             report_col_path: "Localização",
             btn_reveal_proj: "Selecionar no Projeto",
             btn_reveal_finder: "Revelar no Explorer/Finder",
-            btn_action_collect: "Coletar (Em Breve)",
-            btn_action_import: "Importar (Em Breve)",
+            btn_action_collect: "Coletar e Reconectar",
+            btn_action_import: "Importar Selecionados",
             btn_close: "Fechar",
             sel_none: "Nenhum item selecionado",
             sel_single: "Selecionado: ",
-            sel_multi: " itens selecionados"
+            sel_multi: " itens selecionados",
+            msg_import_success: "{0} arquivos importados para a pasta '_Pathfinder_Imports'.",
+            msg_collect_success: "{0} arquivos coletados com sucesso.",
+            msg_collect_skip: "\n{0} arquivos ignorados (PSD/AI com camadas) para evitar erros.",
+            msg_collect_fail: "Falha ao coletar alguns arquivos. Verifique permissões."
         },
         en: {
-            title: "Pathfinder v2.2",
+            title: "Pathfinder v2.3",
             btn_change_root: "📂",
             btn_change_root_tip: "Change Root Folder...",
             btn_refresh: "↻",
@@ -62,12 +66,16 @@
             report_col_path: "Location",
             btn_reveal_proj: "Select in Project",
             btn_reveal_finder: "Reveal in Explorer/Finder",
-            btn_action_collect: "Collect (Soon)",
-            btn_action_import: "Import (Soon)",
+            btn_action_collect: "Collect & Relink",
+            btn_action_import: "Import Selected",
             btn_close: "Close",
             sel_none: "No items selected",
             sel_single: "Selected: ",
-            sel_multi: " items selected"
+            sel_multi: " items selected",
+            msg_import_success: "{0} files imported to '_Pathfinder_Imports' bin.",
+            msg_collect_success: "{0} files collected successfully.",
+            msg_collect_skip: "\n{0} files skipped (Layered PSD/AI) to prevent errors.",
+            msg_collect_fail: "Failed to collect some files. Check permissions."
         }
     };
     
@@ -106,21 +114,20 @@
         var win = new Window("dialog", title, undefined, {resizeable: true});
         win.orientation = "column";
         win.alignChildren = ["fill", "fill"];
-        win.spacing = 5; // Spacing reduzido para ficar compacto
+        win.spacing = 5;
         win.margins = 15;
         win.preferredSize = [750, 400]; 
 
-        // --- LISTBOX ---
+        // Listbox
         var list = win.add("listbox", undefined, [], {
             numberOfColumns: 2, 
             showHeaders: true, 
             columnTitles: [L.report_col_name, L.report_col_path],
             multiselect: true
         });
-        
         list.alignment = ["fill", "fill"];
 
-        // Populate List
+        // Populate
         for (var i = 0; i < dataArray.length; i++) {
             var itemData = dataArray[i];
             var name, fullPath;
@@ -138,17 +145,15 @@
             entry.data = itemData; 
         }
 
-        // --- SELECTION STATUS BAR (A Correção Visual) ---
+        // Status Text
         var statusText = win.add("statictext", undefined, L.sel_none);
         statusText.alignment = ["fill", "top"];
         statusText.graphics.font = ScriptUI.newFont("Segoe UI", "Italic", 11);
         statusText.graphics.foregroundColor = statusText.graphics.newPen(statusText.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);
 
-        // Listener para atualizar o texto quando clica
         list.onChange = function() {
             if (!this.selection) {
                 statusText.text = L.sel_none;
-                // Botões podem ser desabilitados aqui se quiser refinar
             } else if (this.selection instanceof Array) {
                 statusText.text = this.selection.length + L.sel_multi;
             } else {
@@ -156,20 +161,17 @@
             }
         };
 
-        // --- FOOTER GROUP ---
+        // Footer
         var footerGroup = win.add("group");
         footerGroup.orientation = "row";
         footerGroup.alignment = ["fill", "bottom"]; 
         footerGroup.alignChildren = ["left", "center"];
-        footerGroup.margins = 0; 
-        footerGroup.spacing = 10;
-        footerGroup.margins.top = 5; // Um respiro do texto de status
+        footerGroup.margins = 0; footerGroup.spacing = 10; footerGroup.margins.top = 5;
 
         var leftGroup = footerGroup.add("group");
         leftGroup.orientation = "row";
         leftGroup.alignment = ["left", "center"];
-        leftGroup.margins = 0; 
-        leftGroup.spacing = 5; 
+        leftGroup.margins = 0; leftGroup.spacing = 5; 
 
         var spacer = footerGroup.add("group");
         spacer.alignment = ["fill", "fill"];
@@ -179,7 +181,7 @@
         rightGroup.alignment = ["right", "center"];
         rightGroup.margins = 0;
 
-        // Botões de Ação
+        // --- BUTTONS LOGIC ---
         if (type === "stray") {
             var btnReveal = leftGroup.add("button", undefined, L.btn_reveal_proj);
             var btnCollect = leftGroup.add("button", undefined, L.btn_action_collect);
@@ -190,17 +192,64 @@
                     if (!(sel instanceof Array)) sel = [sel];
                     
                     var currentSel = app.project.selection;
-                    for (var c = 0; c < currentSel.length; c++) {
-                        currentSel[c].selected = false;
-                    }
+                    for (var c = 0; c < currentSel.length; c++) { currentSel[c].selected = false; }
 
                     for(var k=0; k<sel.length; k++) {
                         try { sel[k].data.selected = true; } catch(e) {}
                     }
                 }
             };
-            btnCollect.enabled = false;
+            
+            // LÓGICA COLETAR COM SEGURANÇA
+            btnCollect.onClick = function() {
+                var sel = list.selection;
+                if (!sel) return;
+                if (!(sel instanceof Array)) sel = [sel];
+
+                var rootDir = new Folder(currentBasePath);
+                var collectDir = new Folder(rootDir.fsName + "/_Collected_Strays");
+                if (!collectDir.exists) collectDir.create();
+
+                app.beginUndoGroup("Pathfinder: Collect Strays");
+                var count = 0;
+                var skipped = 0;
+
+                for (var i = 0; i < sel.length; i++) {
+                    var item = sel[i].data; // FootageItem
+                    var oldFile = item.file;
+                    if (!oldFile) continue;
+
+                    // CHECAGEM DE SEGURANÇA: PSD, AI, PDF
+                    if (oldFile.name.match(/\.(psd|ai|pdf)$/i)) {
+                        skipped++;
+                        continue; // Pula este arquivo
+                    }
+
+                    var newFile = new File(collectDir.fsName + "/" + oldFile.name);
+                    
+                    if (oldFile.copy(newFile.fsName)) {
+                        item.replace(newFile);
+                        count++;
+                    }
+                }
+                app.endUndoGroup();
+                
+                var msg = L.msg_collect_success.replace("{0}", count);
+                if (skipped > 0) {
+                    msg += L.msg_collect_skip.replace("{0}", skipped);
+                }
+
+                if (count > 0 || skipped > 0) {
+                    alert(msg);
+                    win.close();
+                    runFullAudit(); 
+                } else {
+                    alert(L.msg_collect_fail);
+                }
+            };
+
         } else {
+            // ORPHANS
             var btnFinder = leftGroup.add("button", undefined, L.btn_reveal_finder);
             var btnImport = leftGroup.add("button", undefined, L.btn_action_import);
 
@@ -213,14 +262,48 @@
                     else fileObj.execute();
                  }
             };
-            btnImport.enabled = false;
+            
+            // LÓGICA IMPORTAR
+            btnImport.onClick = function() {
+                var sel = list.selection;
+                if (!sel) return;
+                if (!(sel instanceof Array)) sel = [sel];
+
+                var binName = "_Pathfinder_Imports";
+                var targetBin = null;
+                for (var i = 1; i <= app.project.numItems; i++) {
+                    if (app.project.item(i) instanceof FolderItem && app.project.item(i).name === binName) {
+                        targetBin = app.project.item(i);
+                        break;
+                    }
+                }
+                if (!targetBin) targetBin = app.project.items.addFolder(binName);
+
+                app.beginUndoGroup("Pathfinder: Import Orphans");
+                var count = 0;
+                for (var i = 0; i < sel.length; i++) {
+                    var fileObj = sel[i].data;
+                    try {
+                        var io = new ImportOptions(fileObj);
+                        if (io.canImportAs(ImportAsType.FOOTAGE)) {
+                            var newItem = app.project.importFile(io);
+                            newItem.parentFolder = targetBin;
+                            count++;
+                        }
+                    } catch(e) {}
+                }
+                app.endUndoGroup();
+
+                alert(L.msg_import_success.replace("{0}", count));
+                win.close();
+                runFullAudit();
+            };
         }
 
         var closeBtn = rightGroup.add("button", undefined, L.btn_close);
         closeBtn.preferredSize = [100, 30]; 
         closeBtn.onClick = function() { win.close(); };
 
-        // Layout Update
         function updateLayout() {
             var listWidth = list.size[0];
             if (listWidth < 100) return;
@@ -235,10 +318,7 @@
             updateLayout();
         };
 
-        // Forçar foco na lista (Tenta ativar a cor azul do OS)
-        win.onShow = function() {
-            list.active = true;
-        }
+        win.onShow = function() { list.active = true; }
 
         win.show();
         updateLayout(); 
@@ -259,7 +339,7 @@
     var currentStrayItems = []; 
     var currentOrphanFiles = [];
 
-    // --- CABEÇALHO ---
+    // --- HEADER ---
     var headerGroup = pal.add("group");
     headerGroup.orientation = "row";
     headerGroup.alignChildren = ["left", "center"];
