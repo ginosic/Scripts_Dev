@@ -1,10 +1,10 @@
 /*
-    Pathfinder v2.2.1 (The Stretchy Update)
+    Pathfinder v2.2.2 (The Responsive Layout)
     -------------------------------------------------
     Fixes:
-    - Project Item Selection Logic
-    - Dynamic Resizing of Report Window
-    - Correct Localization (EN/PT)
+    - Dynamic Column Widths (Paths expand with window)
+    - Footer Layout (Buttons aligned properly at bottom)
+    - UI cleanup
 */
 
 (function(thisObj) {
@@ -30,11 +30,11 @@
             report_title_strays: "Relatório de Fujões",
             report_title_orphans: "Relatório de Órfãos",
             report_col_name: "Nome do Arquivo",
-            report_col_path: "Caminho (Resumido)",
+            report_col_path: "Caminho Completo",
             btn_reveal_proj: "Selecionar no Projeto",
             btn_reveal_finder: "Revelar no Explorer/Finder",
-            btn_action_collect: "Coletar para Pasta (Em Breve)",
-            btn_action_import: "Importar Selecionados (Em Breve)",
+            btn_action_collect: "Coletar (Em Breve)",
+            btn_action_import: "Importar (Em Breve)",
             btn_close: "Fechar"
         },
         en: {
@@ -56,11 +56,11 @@
             report_title_strays: "Strays Report",
             report_title_orphans: "Orphans Report",
             report_col_name: "File Name",
-            report_col_path: "Path (Short)",
+            report_col_path: "Full Path",
             btn_reveal_proj: "Select in Project",
             btn_reveal_finder: "Reveal in Explorer/Finder",
-            btn_action_collect: "Collect to Folder (Soon)",
-            btn_action_import: "Import Selected (Soon)",
+            btn_action_collect: "Collect (Soon)",
+            btn_action_import: "Import (Soon)",
             btn_close: "Close"
         }
     };
@@ -99,11 +99,12 @@
     function buildReportWindow(title, dataArray, type) {
         var win = new Window("dialog", title, undefined, {resizeable: true});
         win.orientation = "column";
-        win.alignChildren = ["fill", "fill"]; // Garante que filhos preencham espaço
+        win.alignChildren = ["fill", "fill"];
         win.spacing = 10;
         win.margins = 15;
+        win.preferredSize = [700, 400]; // Tamanho inicial um pouco maior
 
-        // ListBox Header
+        // --- LISTBOX ---
         var list = win.add("listbox", undefined, [], {
             numberOfColumns: 2, 
             showHeaders: true, 
@@ -111,9 +112,7 @@
             multiselect: true
         });
         
-        // MÁGICA DO REDIMENSIONAMENTO:
-        list.alignment = ["fill", "fill"]; // Estica horizontal e verticalmente
-        list.preferredSize = [600, 300];   // Tamanho inicial mínimo
+        list.alignment = ["fill", "fill"];
 
         // Populate List
         for (var i = 0; i < dataArray.length; i++) {
@@ -129,78 +128,113 @@
             }
 
             var entry = list.add("item", name);
-            entry.subItems[0].text = getShortPath(fullPath);
+            // entry.subItems[0].text = getShortPath(fullPath); // Versão anterior (curta)
+            entry.subItems[0].text = fullPath; // Agora mostramos o full path, pois a coluna vai esticar
             entry.data = itemData; 
         }
 
-        // Action Buttons Group
-        var btnGroup = win.add("group");
-        btnGroup.orientation = "row";
-        btnGroup.alignment = "center";
-        btnGroup.alignChildren = ["center", "center"];
+        // --- FOOTER GROUP (Botões) ---
+        // Cria um grupo horizontal que fica preso no rodapé
+        var footerGroup = win.add("group");
+        footerGroup.orientation = "row";
+        footerGroup.alignment = ["fill", "bottom"]; 
+        footerGroup.alignChildren = ["left", "center"];
 
+        // Grupo da Esquerda (Ações)
+        var leftGroup = footerGroup.add("group");
+        leftGroup.orientation = "row";
+        leftGroup.alignment = ["left", "center"];
+
+        // Grupo da Direita (Fechar) - Spacer empurra ele pra direita
+        var rightGroup = footerGroup.add("group");
+        rightGroup.orientation = "row";
+        rightGroup.alignment = ["right", "center"];
+        
+        // Espaçador Flexível entre os grupos
+        // O truque do layout manager: se adicionar componentes com alignment left e right no mesmo pai, às vezes buga.
+        // O jeito mais seguro é criar um painel invisível que estica.
+        // Mas o ScriptUI básico é simples: vamos usar o layout do footerGroup.
+        
+        // Refazendo footer layout para garantir separação:
+        footerGroup.add("statictext", undefined, ""); // Filler dummy se necessário, mas vamos tentar alignment direto.
+        // ScriptUI layout hack: para separar Esquerda e Direita, o pai tem que ser justify? Não tem justify.
+        // Vamos usar um preferredSize width grande no meio ou um container que estica.
+        
+        // Melhor abordagem limpa:
+        footerGroup.remove(leftGroup);
+        footerGroup.remove(rightGroup);
+        
+        // Botões de Ação (Esquerda)
         if (type === "stray") {
-            // Ações para Fujões
-            var btnReveal = btnGroup.add("button", undefined, L.btn_reveal_proj);
-            var btnCollect = btnGroup.add("button", undefined, L.btn_action_collect);
+            var btnReveal = footerGroup.add("button", undefined, L.btn_reveal_proj);
+            var btnCollect = footerGroup.add("button", undefined, L.btn_action_collect);
             
             btnReveal.onClick = function() {
                 if (list.selection) {
                     var sel = list.selection;
                     if (!(sel instanceof Array)) sel = [sel];
                     
-                    // Passo 1: Limpar seleção atual do AE (Workaround para Read-Only)
                     var currentSel = app.project.selection;
                     for (var c = 0; c < currentSel.length; c++) {
                         currentSel[c].selected = false;
                     }
 
-                    // Passo 2: Selecionar novos itens
                     for(var k=0; k<sel.length; k++) {
-                        var itemToSelect = sel[k].data;
-                        try {
-                            itemToSelect.selected = true;
-                        } catch(e) {
-                            // Ignora erro se item não existir mais
-                        }
+                        try { sel[k].data.selected = true; } catch(e) {}
                     }
-                    // win.close(); // Se quiser fechar ao selecionar, descomente
                 }
             };
-
             btnCollect.enabled = false;
-
         } else {
-            // Ações para Órfãos
-            var btnFinder = btnGroup.add("button", undefined, L.btn_reveal_finder);
-            var btnImport = btnGroup.add("button", undefined, L.btn_action_import);
+            var btnFinder = footerGroup.add("button", undefined, L.btn_reveal_finder);
+            var btnImport = footerGroup.add("button", undefined, L.btn_action_import);
 
             btnFinder.onClick = function() {
                  if (list.selection) {
                     var sel = list.selection;
                     if (sel instanceof Array) sel = sel[0];
                     var fileObj = sel.data;
-                    
-                    if (fileObj.parent) {
-                        fileObj.parent.execute();
-                    } else {
-                        fileObj.execute();
-                    }
+                    if (fileObj.parent) fileObj.parent.execute();
+                    else fileObj.execute();
                  }
             };
-            
             btnImport.enabled = false;
         }
 
-        var closeBtn = win.add("button", undefined, L.btn_close);
-        closeBtn.alignment = "right";
+        // Espaçador elástico para empurrar o botão Fechar para a direita
+        var spacer = footerGroup.add("group");
+        spacer.alignment = ["fill", "fill"];
+
+        // Botão Fechar (Direita)
+        var closeBtn = footerGroup.add("button", undefined, L.btn_close);
         closeBtn.onClick = function() { win.close(); };
 
-        // Força atualização do layout ao redimensionar
-        win.onResizing = win.onResize = function() { this.layout.resize(); };
 
-        win.center();
+        // --- FUNÇÃO DE UPDATE DE COLUNAS ---
+        function updateLayout() {
+            // Calcula a largura disponível na lista
+            var listWidth = list.size[0];
+            if (listWidth < 100) return; // Segurança inicial
+
+            // Tira um pouquinho pra barra de rolagem (aprox 20px)
+            var availableWidth = listWidth - 25;
+
+            // Define proporções: 30% Nome, 70% Caminho
+            var col1 = availableWidth * 0.30;
+            var col2 = availableWidth * 0.70;
+
+            list.columnWidths = [col1, col2];
+        }
+
+        // Listener de Resize da Janela
+        win.onResizing = win.onResize = function() {
+            this.layout.resize();
+            updateLayout(); // Chama nossa matemática de colunas
+        };
+
+        // Mostra a janela e força o primeiro update
         win.show();
+        updateLayout(); 
     }
 
     // --- UI BUILD PRINCIPAL ---
@@ -270,7 +304,6 @@
 
     refreshBtn.onClick = function() { runFullAudit(); };
 
-    // Correção dos títulos usando Lingo
     listStraysBtn.onClick = function() { 
         buildReportWindow(L.report_title_strays, currentStrayItems, "stray"); 
     };
