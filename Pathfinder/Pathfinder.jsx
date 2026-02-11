@@ -1,10 +1,10 @@
 /*
-    Pathfinder v2.2.2 (The Responsive Layout)
+    Pathfinder v2.2.4 (The Feedback Update)
     -------------------------------------------------
     Fixes:
-    - Dynamic Column Widths (Paths expand with window)
-    - Footer Layout (Buttons aligned properly at bottom)
-    - UI cleanup
+    - Added Selection Status Text (Visual Feedback)
+    - Forced Focus on Listbox (To try and trigger active OS highlight color)
+    - Clean Layout maintained
 */
 
 (function(thisObj) {
@@ -30,12 +30,15 @@
             report_title_strays: "Relatório de Fujões",
             report_title_orphans: "Relatório de Órfãos",
             report_col_name: "Nome do Arquivo",
-            report_col_path: "Caminho Completo",
+            report_col_path: "Localização",
             btn_reveal_proj: "Selecionar no Projeto",
             btn_reveal_finder: "Revelar no Explorer/Finder",
             btn_action_collect: "Coletar (Em Breve)",
             btn_action_import: "Importar (Em Breve)",
-            btn_close: "Fechar"
+            btn_close: "Fechar",
+            sel_none: "Nenhum item selecionado",
+            sel_single: "Selecionado: ",
+            sel_multi: " itens selecionados"
         },
         en: {
             title: "Pathfinder v2.2",
@@ -56,12 +59,15 @@
             report_title_strays: "Strays Report",
             report_title_orphans: "Orphans Report",
             report_col_name: "File Name",
-            report_col_path: "Full Path",
+            report_col_path: "Location",
             btn_reveal_proj: "Select in Project",
             btn_reveal_finder: "Reveal in Explorer/Finder",
             btn_action_collect: "Collect (Soon)",
             btn_action_import: "Import (Soon)",
-            btn_close: "Close"
+            btn_close: "Close",
+            sel_none: "No items selected",
+            sel_single: "Selected: ",
+            sel_multi: " items selected"
         }
     };
     
@@ -100,9 +106,9 @@
         var win = new Window("dialog", title, undefined, {resizeable: true});
         win.orientation = "column";
         win.alignChildren = ["fill", "fill"];
-        win.spacing = 10;
+        win.spacing = 5; // Spacing reduzido para ficar compacto
         win.margins = 15;
-        win.preferredSize = [700, 400]; // Tamanho inicial um pouco maior
+        win.preferredSize = [750, 400]; 
 
         // --- LISTBOX ---
         var list = win.add("listbox", undefined, [], {
@@ -120,54 +126,63 @@
             var name, fullPath;
             
             if (type === "stray") {
-                name = itemData.name;
-                fullPath = itemData.file.fsName;
+                name = decodeURI(itemData.name); 
+                fullPath = decodeURI(itemData.file.fsName);
             } else {
-                name = itemData.name;
-                fullPath = itemData.fsName;
+                name = decodeURI(itemData.name);
+                fullPath = decodeURI(itemData.fsName);
             }
 
             var entry = list.add("item", name);
-            // entry.subItems[0].text = getShortPath(fullPath); // Versão anterior (curta)
-            entry.subItems[0].text = fullPath; // Agora mostramos o full path, pois a coluna vai esticar
+            entry.subItems[0].text = fullPath; 
             entry.data = itemData; 
         }
 
-        // --- FOOTER GROUP (Botões) ---
-        // Cria um grupo horizontal que fica preso no rodapé
+        // --- SELECTION STATUS BAR (A Correção Visual) ---
+        var statusText = win.add("statictext", undefined, L.sel_none);
+        statusText.alignment = ["fill", "top"];
+        statusText.graphics.font = ScriptUI.newFont("Segoe UI", "Italic", 11);
+        statusText.graphics.foregroundColor = statusText.graphics.newPen(statusText.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);
+
+        // Listener para atualizar o texto quando clica
+        list.onChange = function() {
+            if (!this.selection) {
+                statusText.text = L.sel_none;
+                // Botões podem ser desabilitados aqui se quiser refinar
+            } else if (this.selection instanceof Array) {
+                statusText.text = this.selection.length + L.sel_multi;
+            } else {
+                statusText.text = L.sel_single + this.selection.text;
+            }
+        };
+
+        // --- FOOTER GROUP ---
         var footerGroup = win.add("group");
         footerGroup.orientation = "row";
         footerGroup.alignment = ["fill", "bottom"]; 
         footerGroup.alignChildren = ["left", "center"];
+        footerGroup.margins = 0; 
+        footerGroup.spacing = 10;
+        footerGroup.margins.top = 5; // Um respiro do texto de status
 
-        // Grupo da Esquerda (Ações)
         var leftGroup = footerGroup.add("group");
         leftGroup.orientation = "row";
         leftGroup.alignment = ["left", "center"];
+        leftGroup.margins = 0; 
+        leftGroup.spacing = 5; 
 
-        // Grupo da Direita (Fechar) - Spacer empurra ele pra direita
+        var spacer = footerGroup.add("group");
+        spacer.alignment = ["fill", "fill"];
+
         var rightGroup = footerGroup.add("group");
         rightGroup.orientation = "row";
         rightGroup.alignment = ["right", "center"];
-        
-        // Espaçador Flexível entre os grupos
-        // O truque do layout manager: se adicionar componentes com alignment left e right no mesmo pai, às vezes buga.
-        // O jeito mais seguro é criar um painel invisível que estica.
-        // Mas o ScriptUI básico é simples: vamos usar o layout do footerGroup.
-        
-        // Refazendo footer layout para garantir separação:
-        footerGroup.add("statictext", undefined, ""); // Filler dummy se necessário, mas vamos tentar alignment direto.
-        // ScriptUI layout hack: para separar Esquerda e Direita, o pai tem que ser justify? Não tem justify.
-        // Vamos usar um preferredSize width grande no meio ou um container que estica.
-        
-        // Melhor abordagem limpa:
-        footerGroup.remove(leftGroup);
-        footerGroup.remove(rightGroup);
-        
-        // Botões de Ação (Esquerda)
+        rightGroup.margins = 0;
+
+        // Botões de Ação
         if (type === "stray") {
-            var btnReveal = footerGroup.add("button", undefined, L.btn_reveal_proj);
-            var btnCollect = footerGroup.add("button", undefined, L.btn_action_collect);
+            var btnReveal = leftGroup.add("button", undefined, L.btn_reveal_proj);
+            var btnCollect = leftGroup.add("button", undefined, L.btn_action_collect);
             
             btnReveal.onClick = function() {
                 if (list.selection) {
@@ -186,8 +201,8 @@
             };
             btnCollect.enabled = false;
         } else {
-            var btnFinder = footerGroup.add("button", undefined, L.btn_reveal_finder);
-            var btnImport = footerGroup.add("button", undefined, L.btn_action_import);
+            var btnFinder = leftGroup.add("button", undefined, L.btn_reveal_finder);
+            var btnImport = leftGroup.add("button", undefined, L.btn_action_import);
 
             btnFinder.onClick = function() {
                  if (list.selection) {
@@ -201,38 +216,30 @@
             btnImport.enabled = false;
         }
 
-        // Espaçador elástico para empurrar o botão Fechar para a direita
-        var spacer = footerGroup.add("group");
-        spacer.alignment = ["fill", "fill"];
-
-        // Botão Fechar (Direita)
-        var closeBtn = footerGroup.add("button", undefined, L.btn_close);
+        var closeBtn = rightGroup.add("button", undefined, L.btn_close);
+        closeBtn.preferredSize = [100, 30]; 
         closeBtn.onClick = function() { win.close(); };
 
-
-        // --- FUNÇÃO DE UPDATE DE COLUNAS ---
+        // Layout Update
         function updateLayout() {
-            // Calcula a largura disponível na lista
             var listWidth = list.size[0];
-            if (listWidth < 100) return; // Segurança inicial
-
-            // Tira um pouquinho pra barra de rolagem (aprox 20px)
+            if (listWidth < 100) return;
             var availableWidth = listWidth - 25;
-
-            // Define proporções: 30% Nome, 70% Caminho
-            var col1 = availableWidth * 0.30;
-            var col2 = availableWidth * 0.70;
-
+            var col1 = availableWidth * 0.35;
+            var col2 = availableWidth * 0.65;
             list.columnWidths = [col1, col2];
         }
 
-        // Listener de Resize da Janela
         win.onResizing = win.onResize = function() {
             this.layout.resize();
-            updateLayout(); // Chama nossa matemática de colunas
+            updateLayout();
         };
 
-        // Mostra a janela e força o primeiro update
+        // Forçar foco na lista (Tenta ativar a cor azul do OS)
+        win.onShow = function() {
+            list.active = true;
+        }
+
         win.show();
         updateLayout(); 
     }
