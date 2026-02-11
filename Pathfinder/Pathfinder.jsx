@@ -1,10 +1,10 @@
 /*
-    Pathfinder v2.3.1 (The Safety Net Update)
+    Pathfinder v2.4 (The Search & Rescue Update)
     -------------------------------------------------
-    Fixes:
-    - Added safety check in "Collect" action.
-    - Skips .psd, .ai, .pdf files to prevent losing layer selection on relink.
-    - Updated alert messages to report skipped files.
+    New Feature:
+    - Auto Relink (Search): Scans the root folder for missing files 
+      and relinks them if found (useful if you manually moved files).
+    - Maintains the "Bouncer" safety (Skips PSD/AI/PDF).
 */
 
 (function(thisObj) {
@@ -12,7 +12,7 @@
     // --- LINGO ---
     var lingo = {
         pt: {
-            title: "Pathfinder v2.3",
+            title: "Pathfinder v2.4",
             btn_change_root: "📂",
             btn_change_root_tip: "Mudar Pasta Raiz...",
             btn_refresh: "↻",
@@ -33,7 +33,8 @@
             report_col_path: "Localização",
             btn_reveal_proj: "Selecionar no Projeto",
             btn_reveal_finder: "Revelar no Explorer/Finder",
-            btn_action_collect: "Coletar e Reconectar",
+            btn_action_collect: "Coletar (Copiar)",
+            btn_action_relink: "Auto Relink (Buscar)",
             btn_action_import: "Importar Selecionados",
             btn_close: "Fechar",
             sel_none: "Nenhum item selecionado",
@@ -41,11 +42,13 @@
             sel_multi: " itens selecionados",
             msg_import_success: "{0} arquivos importados para a pasta '_Pathfinder_Imports'.",
             msg_collect_success: "{0} arquivos coletados com sucesso.",
-            msg_collect_skip: "\n{0} arquivos ignorados (PSD/AI com camadas) para evitar erros.",
-            msg_collect_fail: "Falha ao coletar alguns arquivos. Verifique permissões."
+            msg_relink_success: "{0} arquivos reconectados com sucesso.",
+            msg_skip_layer: "\n{0} arquivos ignorados (PSD/AI com camadas).",
+            msg_relink_fail: "\n{0} arquivos não foram encontrados na pasta raiz.",
+            msg_collect_fail: "Falha na operação."
         },
         en: {
-            title: "Pathfinder v2.3",
+            title: "Pathfinder v2.4",
             btn_change_root: "📂",
             btn_change_root_tip: "Change Root Folder...",
             btn_refresh: "↻",
@@ -66,7 +69,8 @@
             report_col_path: "Location",
             btn_reveal_proj: "Select in Project",
             btn_reveal_finder: "Reveal in Explorer/Finder",
-            btn_action_collect: "Collect & Relink",
+            btn_action_collect: "Collect (Copy)",
+            btn_action_relink: "Auto Relink (Search)",
             btn_action_import: "Import Selected",
             btn_close: "Close",
             sel_none: "No items selected",
@@ -74,8 +78,10 @@
             sel_multi: " items selected",
             msg_import_success: "{0} files imported to '_Pathfinder_Imports' bin.",
             msg_collect_success: "{0} files collected successfully.",
-            msg_collect_skip: "\n{0} files skipped (Layered PSD/AI) to prevent errors.",
-            msg_collect_fail: "Failed to collect some files. Check permissions."
+            msg_relink_success: "{0} files relinked successfully.",
+            msg_skip_layer: "\n{0} files skipped (Layered PSD/AI).",
+            msg_relink_fail: "\n{0} files not found in root folder.",
+            msg_collect_fail: "Operation failed."
         }
     };
     
@@ -109,6 +115,18 @@
         return fileList;
     }
 
+    // Função para buscar arquivo pelo nome dentro de uma pasta (recursivo)
+    function findFileByName(rootFolder, fileNameToFind) {
+        var allFiles = getAllFilesRecursive(rootFolder);
+        for (var i = 0; i < allFiles.length; i++) {
+            // Decodifica para garantir match (ex: espaço vs %20)
+            if (decodeURI(allFiles[i].name) === decodeURI(fileNameToFind)) {
+                return allFiles[i];
+            }
+        }
+        return null;
+    }
+
     // --- REPORT WINDOW GENERATOR ---
     function buildReportWindow(title, dataArray, type) {
         var win = new Window("dialog", title, undefined, {resizeable: true});
@@ -116,7 +134,7 @@
         win.alignChildren = ["fill", "fill"];
         win.spacing = 5;
         win.margins = 15;
-        win.preferredSize = [750, 400]; 
+        win.preferredSize = [800, 400]; // Um pouco mais largo para caber 3 botões
 
         // Listbox
         var list = win.add("listbox", undefined, [], {
@@ -185,68 +203,90 @@
         if (type === "stray") {
             var btnReveal = leftGroup.add("button", undefined, L.btn_reveal_proj);
             var btnCollect = leftGroup.add("button", undefined, L.btn_action_collect);
+            var btnRelink = leftGroup.add("button", undefined, L.btn_action_relink); // NOVO BOTÃO
             
             btnReveal.onClick = function() {
                 if (list.selection) {
                     var sel = list.selection;
                     if (!(sel instanceof Array)) sel = [sel];
-                    
                     var currentSel = app.project.selection;
                     for (var c = 0; c < currentSel.length; c++) { currentSel[c].selected = false; }
-
-                    for(var k=0; k<sel.length; k++) {
-                        try { sel[k].data.selected = true; } catch(e) {}
-                    }
+                    for(var k=0; k<sel.length; k++) { try { sel[k].data.selected = true; } catch(e) {} }
                 }
             };
             
-            // LÓGICA COLETAR COM SEGURANÇA
+            // LÓGICA COLETAR (Copia e Relinka)
             btnCollect.onClick = function() {
-                var sel = list.selection;
-                if (!sel) return;
-                if (!(sel instanceof Array)) sel = [sel];
+                processRelink("collect", list.selection);
+                win.close();
+                runFullAudit();
+            };
+
+            // LÓGICA AUTO RELINK (Busca e Relinka)
+            btnRelink.onClick = function() {
+                processRelink("search", list.selection);
+                win.close();
+                runFullAudit();
+            };
+
+            // Função Unificada de Processamento
+            function processRelink(mode, selection) {
+                if (!selection) return;
+                if (!(selection instanceof Array)) selection = [selection];
 
                 var rootDir = new Folder(currentBasePath);
-                var collectDir = new Folder(rootDir.fsName + "/_Collected_Strays");
-                if (!collectDir.exists) collectDir.create();
+                var collectDir = null;
+                
+                if (mode === "collect") {
+                    collectDir = new Folder(rootDir.fsName + "/_Collected_Strays");
+                    if (!collectDir.exists) collectDir.create();
+                }
 
-                app.beginUndoGroup("Pathfinder: Collect Strays");
+                app.beginUndoGroup("Pathfinder: " + mode);
                 var count = 0;
                 var skipped = 0;
+                var notFound = 0;
 
-                for (var i = 0; i < sel.length; i++) {
-                    var item = sel[i].data; // FootageItem
+                for (var i = 0; i < selection.length; i++) {
+                    var item = selection[i].data; // FootageItem
                     var oldFile = item.file;
                     if (!oldFile) continue;
 
-                    // CHECAGEM DE SEGURANÇA: PSD, AI, PDF
+                    // BOUNCER (Segurança)
                     if (oldFile.name.match(/\.(psd|ai|pdf)$/i)) {
                         skipped++;
-                        continue; // Pula este arquivo
+                        continue; 
                     }
 
-                    var newFile = new File(collectDir.fsName + "/" + oldFile.name);
-                    
-                    if (oldFile.copy(newFile.fsName)) {
-                        item.replace(newFile);
-                        count++;
+                    if (mode === "collect") {
+                        // Modo 1: Copiar para pasta coletada
+                        var newFile = new File(collectDir.fsName + "/" + oldFile.name);
+                        if (oldFile.copy(newFile.fsName)) {
+                            item.replace(newFile);
+                            count++;
+                        }
+                    } else {
+                        // Modo 2: Buscar na raiz
+                        var foundFile = findFileByName(rootDir, oldFile.name);
+                        if (foundFile && foundFile.exists) {
+                            item.replace(foundFile);
+                            count++;
+                        } else {
+                            notFound++;
+                        }
                     }
                 }
                 app.endUndoGroup();
-                
-                var msg = L.msg_collect_success.replace("{0}", count);
-                if (skipped > 0) {
-                    msg += L.msg_collect_skip.replace("{0}", skipped);
-                }
 
-                if (count > 0 || skipped > 0) {
-                    alert(msg);
-                    win.close();
-                    runFullAudit(); 
-                } else {
-                    alert(L.msg_collect_fail);
-                }
-            };
+                // Monta mensagem
+                var msg = (mode === "collect") ? L.msg_collect_success : L.msg_relink_success;
+                msg = msg.replace("{0}", count);
+
+                if (skipped > 0) msg += L.msg_skip_layer.replace("{0}", skipped);
+                if (notFound > 0) msg += L.msg_relink_fail.replace("{0}", notFound);
+
+                alert(msg);
+            }
 
         } else {
             // ORPHANS
@@ -263,7 +303,6 @@
                  }
             };
             
-            // LÓGICA IMPORTAR
             btnImport.onClick = function() {
                 var sel = list.selection;
                 if (!sel) return;
