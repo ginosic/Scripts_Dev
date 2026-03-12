@@ -1,5 +1,5 @@
 /*
- * coloRayer v1.5
+ * coloRayer v1.6
  * A script to quickly apply label colors to After Effects layers and comps.
  * Developed by: Gino De Sicco (@gino.sicco) and Elton JSON
  */

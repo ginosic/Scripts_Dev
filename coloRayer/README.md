@@ -1,6 +1,6 @@
 # coloRayer for After Effects
 
-**Version:** v1.5
+**Version:** v1.6
 **Developers:** Gino De Sicco & Elton JSON
 
 coloRayer is a smart palette for Adobe After Effects that streamlines the process of labeling layers, keyframes and compositions. Unlike standard label scripts, coloRayer reads your local AE preferences to display the **exact** label colors you have configured, ensuring what you see is what you get.
