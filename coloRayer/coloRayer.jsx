@@ -50,10 +50,43 @@
             alert("Please select one or more layers to color.");
             return;
         }
+        
         app.beginUndoGroup("coloRayer: Apply Label");
+
+        var appliedToKeyframes = false;
+
+        // Step 1: Check for selected keyframes in selected layers
         for (var i = 0; i < selectedLayers.length; i++) {
-            selectedLayers[i].label = labelNum;
+            var layer = selectedLayers[i];
+            var selProps = layer.selectedProperties;
+            
+            for (var p = 0; p < selProps.length; p++) {
+                var prop = selProps[p];
+                
+                // Ensure it's an animatable property with keys
+                if (prop.propertyType === PropertyType.PROPERTY && prop.numKeys > 0) {
+                    var selKeys = prop.selectedKeys;
+                    
+                    if (selKeys !== null && selKeys.length > 0) {
+                        for (var k = 0; k < selKeys.length; k++) {
+                            // Check if the AE version supports keyframe labeling
+                            if (typeof prop.setLabelAtKey === "function") {
+                                prop.setLabelAtKey(selKeys[k], labelNum);
+                                appliedToKeyframes = true;
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        // Step 2: If no keyframes were colored, fallback to standard layer coloring
+        if (!appliedToKeyframes) {
+            for (var i = 0; i < selectedLayers.length; i++) {
+                selectedLayers[i].label = labelNum;
+            }
+        }
+
         app.endUndoGroup();
     }
 

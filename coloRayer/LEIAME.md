@@ -3,12 +3,12 @@
 **Versão:** v1.5
 **Desenvolvedores:** Gino De Sicco & Elton JSON
 
-O coloRayer é uma paleta inteligente para Adobe After Effects que agiliza o processo de etiquetar (labeling) camadas e composições. Diferente de scripts comuns, o coloRayer lê as preferências locais do seu AE para mostrar **exatamente** as cores que você configurou, garantindo que o botão que você clica é a cor que você vê.
+O coloRayer é uma paleta inteligente para Adobe After Effects que agiliza o processo de etiquetar (labeling) camadas, keyframes e composições. Diferente de scripts comuns, o coloRayer lê as preferências locais do seu AE para mostrar **exatamente** as cores que você configurou, garantindo que o botão que você clica é a cor que você vê.
 
 ## 🚀 Funcionalidades
 
 ### 1. Colorização de Camadas
-- **Etiquetagem num Clique:** Aplique cores de label às camadas selecionadas instantaneamente.
+- **Etiquetagem num Clique:** Aplique cores de label às camadas ou keyframes selecionados instantaneamente.
 - **Sincronia Real:** O painel lê os códigos hexadecimais das suas "Preferências de Rótulo" do After Effects. Se você usa cores personalizadas, o coloRayer vai mostrá-las corretamente.
 - **Espectro Completo:** Acesso a todas as 16 cores de label + "Nenhum" (Cinza) em uma grade compacta.
 
@@ -29,7 +29,7 @@ O coloRayer é uma paleta inteligente para Adobe After Effects que agiliza o pro
 
 **Para Camadas:**
 1. Abra uma composição.
-2. Selecione uma ou mais camadas.
+2. Selecione uma ou mais camadas ou keyframes.
 3. Clique em um botão colorido no painel coloRayer.
 
 **Para Composições (Modo Alice):**

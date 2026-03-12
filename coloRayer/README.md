@@ -3,12 +3,12 @@
 **Version:** v1.5
 **Developers:** Gino De Sicco & Elton JSON
 
-coloRayer is a smart palette for Adobe After Effects that streamlines the process of labeling layers and compositions. Unlike standard label scripts, coloRayer reads your local AE preferences to display the **exact** label colors you have configured, ensuring what you see is what you get.
+coloRayer is a smart palette for Adobe After Effects that streamlines the process of labeling layers, keyframes and compositions. Unlike standard label scripts, coloRayer reads your local AE preferences to display the **exact** label colors you have configured, ensuring what you see is what you get.
 
 ## 🚀 Features
 
 ### 1. Contextual Layer Coloring
-- **One-Click Labeling:** Apply label colors to selected layers instantly.
+- **One-Click Labeling:** Apply label colors to selected layers or keyframes instantly.
 - **Live Color Sync:** The panel fetches the actual hex codes from your After Effects "Label Preferences". If you have custom label colors set up in AE, coloRayer will match them perfectly.
 - **Full Spectrum:** Access all 16 label colors + "None" (Grey) in a compact grid.
 
@@ -29,7 +29,7 @@ coloRayer is a smart palette for Adobe After Effects that streamlines the proces
 
 **For Layers:**
 1. Open a composition.
-2. Select one or more layers.
+2. Select one or more layers or keyframes.
 3. Click a color swatch in the coloRayer panel.
 
 **For Comps (Alice Mode):**
