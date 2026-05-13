@@ -1,29 +1,29 @@
 # Wiggle Master for After Effects
 
-**Version:** v4.0
-**Creator:** Pedro Isaias
-**Co-Developers:** Gino De Sicco & Elton JSON
+**Version:** v5.0 (Universal Edition)
+**Creators:** Pedro Isaias, Gino De Sicco (@gino.sicco) & Elton JSON
 
-Wiggle Master is a powerful automation tool for Adobe After Effects that revolutionizes how you apply and control wiggles. Instead of dealing with isolated expressions on every single layer, Wiggle Master links everything to a central "Master Null" object.
+Wiggle Master v5.0 is the definitive evolution of wiggle automation in After Effects. It moves beyond standard transform properties to offer **universal control** over any animatable property in your timeline, all linked to a central, loopable control hub.
 
-This allows you to change the frequency, amplitude, and—most importantly—**create seamless loops** for all your wiggling layers at once.
+## 🚀 Key Evolutions in v5.0
 
-## 🚀 Features
+### 1. ★ Universal Wiggle
+- **Target Anything:** Select *any* property in your timeline (Effect Sliders, Stroke Width, Puppet Pins, etc.) and click **"Wiggle Selected"**.
+- **Dynamic Slider Creation:** The script automatically generates a dedicated "Amount" slider on the Wiggle Master null for each new property you link.
 
-### 1. Centralized Control
-- **One Null to Rule Them All:** The script creates a "Wiggle Master" layer in your comp.
-- **Global Adjustments:** Change the Frequency or Amplitude (Amount) for Position, Scale, Rotation, and Opacity for *all* linked layers instantly via Sliders.
+### 2. Universal Unlink (Smart Dimensions)
+- **Automatic Detection:** The "Unlink Dimensions" feature is now universal. If checked, it will apply independent wiggling to each axis of any multi-dimensional property (2D, 3D, or arrays).
+- **Linked Mode:** If unchecked, multi-dimensional properties (like Scale) will wiggle all axes uniformly based on the first dimension.
 
-### 2. Seamless Looping
-- **Perfect Loops:** Unlike the standard wiggle expression, Wiggle Master is built to loop. Just set the **Loop Duration** slider (in seconds) on the Master layer, and your chaotic motion will wrap around perfectly.
+### 3. Compact & Reorganized UI
+- **Quick Transform:** Dedicated section for the most common transform properties (Position, Scale, Rotation, Opacity).
+- **Action-First Design:** Prominent "Wiggle Selected" button for the new universal workflow.
+- **Refined Cleaning:** Improved "Clear" and "Nuke" functions to manage expressions with surgical precision.
 
-### 3. Advanced Controls
-- **Unlink Scale:** Choose between uniform scaling (X/Y locked) or independent wiggling (squash and stretch effect).
-- **Posterize Time:** Built-in "Stop Motion" feel. Adjust the frame rate of the wiggle directly on the Master layer without adding extra adjustment layers.
-
-### 4. Workflow Tools
-- **Nuke 'Em:** A panic button to strip expressions from all properties on selected layers.
-- **Clear Checked:** Removes expressions only from the specific properties you have checked in the UI.
+## 🛠️ Core Features (Always Included)
+- **Centralized Master Null:** Frequency, Loop Duration, and Posterize Time are controlled globally.
+- **Seamless Looping:** Perfect wrap-around motion based on the Loop Duration slider.
+- **Posterize Time:** Integrated "Stop Motion" effect for the wiggle engine.
 
 ## 📦 Installation
 
@@ -33,13 +33,10 @@ This allows you to change the frequency, amplitude, and—most importantly—**c
 2. Restart After Effects.
 3. Open via the **Window** menu.
 
-## 💡 Usage
-
-1. Select one or more layers in your composition.
-2. Check the properties you want to animate (Position, Scale, Rotation, Opacity).
-3. Click **"Wiggle it!"**.
-4. The script will create a **"Wiggle Master"** layer (if one doesn't exist).
-5. Select the **"Wiggle Master"** layer and go to the **Effect Controls** panel to adjust the speed, amount, and loop duration.
+## 💡 Pro Usage
+- **Wiggle Selected:** This is the most powerful way to use v5.0. Just click the property name in the timeline and hit the star button.
+- **Looping:** Always ensure your composition is at least as long as the "Loop Duration" value for a perfect cycle.
+- **Symlinks:** If you are a CodeVault user, the script is already linked to your AE installations!
 
 ---
-*Original concept by Pedro Isaias. Developed with ❤️ and ExtendScript.*
+*Original concept by Pedro Isaias. Refactored for the future with ❤️ by Gino & Elton.*
