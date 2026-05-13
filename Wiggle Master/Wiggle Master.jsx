@@ -1,13 +1,13 @@
 // =============================================================================
 // Script Name: Wiggle Master
-// Version: 5.0
+// Version: 5.1
 // Creators: Pedro Isaias, Gino De Sicco (@gino.sicco) and Elton JSON
 // Description: Applies loopable wiggle expressions to ANY property.
 // =============================================================================
 
 var lingo = {
     en: {
-        scriptName: "Wiggle Master v5.0",
+        scriptName: "Wiggle Master v5.1",
         propPosition: "Position",
         propScale: "Scale",
         propRotation: "Rotation",
@@ -16,16 +16,18 @@ var lingo = {
         unlinkUniversalTip: "Apply independent wiggle to each axis (for 2D/3D properties)",
         wiggleSelected: "★ Wiggle Selected",
         wiggleSelectedTip: "Apply wiggle to any property selected in the timeline",
-        wiggleChecked: "Wiggle Checked",
-        clearCheckedButton: "Clear Checked",
+        clearSelected: "Clear Selected",
+        clearSelectedTip: "Remove expressions from any property selected in the timeline",
         nukeButton: "Nuke 'Em",
+        nukeButtonTip: "Remove expressions from ALL properties on selected layers",
         undoApply: "Apply Wiggle Master",
+        undoClear: "Clear Selected Wiggles",
         alertNoComp: "Please select a composition first.",
         alertNoLayer: "Please select at least one layer.",
         alertNoProp: "Please select at least one property in the timeline."
     },
     pt: {
-        scriptName: "Wiggle Master v5.0",
+        scriptName: "Wiggle Master v5.1",
         propPosition: "Posição",
         propScale: "Escala",
         propRotation: "Rotação",
@@ -34,10 +36,12 @@ var lingo = {
         unlinkUniversalTip: "Aplica wiggle independente em cada eixo (para propriedades 2D/3D)",
         wiggleSelected: "★ Wiggle Selecionado",
         wiggleSelectedTip: "Aplica wiggle a qualquer propriedade selecionada na timeline",
-        wiggleChecked: "Wiggle Marcados",
-        clearCheckedButton: "Limpar Marcados",
+        clearSelected: "Limpar Selecionado",
+        clearSelectedTip: "Remove expressões de qualquer propriedade selecionada na timeline",
         nukeButton: "Limpar Tudo",
+        nukeButtonTip: "Remove expressões de TODAS as propriedades das camadas selecionadas",
         undoApply: "Aplicar Wiggle Master",
+        undoClear: "Limpar Wiggles Selecionados",
         alertNoComp: "Por favor, selecione uma composição primeiro.",
         alertNoLayer: "Por favor, selecione pelo menos uma camada.",
         alertNoProp: "Por favor, selecione ao menos uma propriedade na timeline."
@@ -67,22 +71,19 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
 
     var ui = {};
     var commonProps = [
-        { key: "position", label: S.propPosition, ref: "ADBE Position" },
-        { key: "scale", label: S.propScale, ref: "ADBE Scale" },
-        { key: "rotation", label: S.propRotation, ref: "ADBE Rotation" },
-        { key: "opacity", label: S.propOpacity, ref: "ADBE Opacity" }
+        { key: "pos", label: S.propPosition, ref: "Position" },
+        { key: "scale", label: S.propScale, ref: "Scale" },
+        { key: "rot", label: S.propRotation, ref: "Rotation" },
+        { key: "opac", label: S.propOpacity, ref: "Opacity" }
     ];
 
-    function addPropRow(parent, item) {
-        var r = parent.add("group");
-        r.spacing = 10;
-        ui[item.key + "Chk"] = r.add("checkbox", undefined, "");
-        ui[item.key + "Btn"] = r.add("button", undefined, item.label);
-        ui[item.key + "Btn"].preferredSize = [120, 22];
+    function addPropBtn(parent, item) {
+        ui[item.key + "Btn"] = parent.add("button", undefined, item.label);
+        ui[item.key + "Btn"].preferredSize.height = 22;
         ui[item.key + "Btn"].onClick = function() { runSmartWiggle([item.ref], false); };
     }
 
-    for (var i = 0; i < commonProps.length; i++) addPropRow(quickPanel, commonProps[i]);
+    for (var i = 0; i < commonProps.length; i++) addPropBtn(quickPanel, commonProps[i]);
 
     // --- UNIVERSAL SETTINGS ---
     var settingsGroup = win.add("group");
@@ -97,14 +98,15 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
     var wiggleSelectedBtn = mainActions.add("button", undefined, S.wiggleSelected);
     wiggleSelectedBtn.helpTip = S.wiggleSelectedTip;
     wiggleSelectedBtn.preferredSize.height = 35;
-
-    var wiggleCheckedBtn = mainActions.add("button", undefined, S.wiggleChecked);
-
+    
     var clearGroup = mainActions.add("group");
     clearGroup.spacing = 5;
-    var clearBtn = clearGroup.add("button", undefined, S.clearCheckedButton);
+    var clearBtn = clearGroup.add("button", undefined, S.clearSelected);
+    clearBtn.helpTip = S.clearSelectedTip;
     clearBtn.preferredSize = [85, 22];
+
     var nukeBtn = clearGroup.add("button", undefined, S.nukeButton);
+    nukeBtn.helpTip = S.nukeButtonTip;
     nukeBtn.preferredSize = [85, 22];
 
     // =============================================================================
@@ -131,16 +133,11 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
     function runSmartWiggle(targetPropNames, useSelection) {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) { alert(S.alertNoComp); return; }
-
+        
         var selectedLayers = comp.selectedLayers;
         if (selectedLayers.length === 0) { alert(S.alertNoLayer); return; }
 
-        app.beginUndoGroup(S.undoApply);
-        var master = getMasterLayer(comp);
-        getSlider(master, config.effects.freq.name, config.effects.freq.defaultValue);
-        getSlider(master, config.effects.loop.name, config.effects.loop.defaultValue);
-        getSlider(master, config.effects.posterizeTimeFx.name, config.effects.posterizeTimeFx.defaultValue);
-
+        // --- BUG FIX: Capture properties BEFORE any project modification (like addNull) ---
         var propsToProcess = [];
         if (useSelection) {
             for (var i = 0; i < selectedLayers.length; i++) {
@@ -151,7 +148,16 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
                     }
                 }
             }
-        } else {
+            if (propsToProcess.length === 0) { alert(S.alertNoProp); return; }
+        }
+
+        app.beginUndoGroup(S.undoApply);
+        var master = getMasterLayer(comp);
+        getSlider(master, config.effects.freq.name, config.effects.freq.defaultValue);
+        getSlider(master, config.effects.loop.name, config.effects.loop.defaultValue);
+        getSlider(master, config.effects.posterizeTimeFx.name, config.effects.posterizeTimeFx.defaultValue);
+
+        if (!useSelection) {
             for (var i = 0; i < selectedLayers.length; i++) {
                 for (var j = 0; j < targetPropNames.length; j++) {
                     var p = selectedLayers[i].property("ADBE Transform Group").property(targetPropNames[j]);
@@ -159,8 +165,6 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
                 }
             }
         }
-
-        if (propsToProcess.length === 0 && useSelection) { alert(S.alertNoProp); app.endUndoGroup(); return; }
 
         for (var i = 0; i < propsToProcess.length; i++) {
             var prop = propsToProcess[i];
@@ -178,13 +182,10 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
 
         var wiggleCore = '';
         if (doUnlink) {
-            // Universal Unlink: Works for 2D, 3D, or any array property
             wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),w2=wiggle(freq,amp,1,.5,t-secondsToLoop),res=[];for(var i=0;i<value.length;i++){res[i]=linear(t,0,secondsToLoop,w1[i],w2[i])}res;';
         } else if (isMulti) {
-            // Multi-dimensional but linked (standard Scale behavior)
             wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),v1=w1[0],lW1=[];for(var i=0;i<value.length;i++){lW1[i]=v1}var w2=wiggle(freq,amp,1,.5,t-secondsToLoop),v2=w2[0],lW2=[];for(var i=0;i<value.length;i++){lW2[i]=v2}linear(t,0,secondsToLoop,lW1,lW2);';
         } else {
-            // Single dimension
             wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),w2=wiggle(freq,amp,1,.5,t-secondsToLoop);linear(t,0,secondsToLoop,w1,w2);';
         }
 
@@ -194,31 +195,14 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
     // --- EVENTS ---
     wiggleSelectedBtn.onClick = function() { runSmartWiggle([], true); };
 
-    wiggleCheckedBtn.onClick = function() {
-        var targets = [];
-        if (ui.positionChk.value) targets.push("ADBE Position");
-        if (ui.scaleChk.value) targets.push("ADBE Scale");
-        if (ui.rotationChk.value) targets.push("ADBE Rotation");
-        if (ui.opacityChk.value) targets.push("ADBE Opacity");
-        runSmartWiggle(targets, false);
-    };
-
     clearBtn.onClick = function() {
         var comp = app.project.activeItem;
         if (!comp) return;
         var selLayers = comp.selectedLayers;
-        var targets = [];
-        if (ui.positionChk.value) targets.push("ADBE Position");
-        if (ui.scaleChk.value) targets.push("ADBE Scale");
-        if (ui.rotationChk.value) targets.push("ADBE Rotation");
-        if (ui.opacityChk.value) targets.push("ADBE Opacity");
-
-        app.beginUndoGroup("Clear Wiggles");
+        app.beginUndoGroup(S.undoClear);
         for (var i = 0; i < selLayers.length; i++) {
-            for (var j = 0; j < targets.length; j++) {
-                var p = selLayers[i].property("ADBE Transform Group").property(targets[j]);
-                if (p && p.canSetExpression) p.expression = "";
-            }
+            var props = selLayers[i].selectedProperties;
+            for (var j = 0; j < props.length; j++) if (props[j].canSetExpression) props[j].expression = "";
         }
         app.endUndoGroup();
     };
@@ -233,7 +217,6 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
             if (props.length > 0) {
                 for (var j = 0; j < props.length; j++) if (props[j].canSetExpression) props[j].expression = "";
             } else {
-                // Fallback to transform if no props selected
                 var t = selLayers[i].property("ADBE Transform Group");
                 for (var j = 1; j <= t.numProperties; j++) if (t.property(j).canSetExpression) t.property(j).expression = "";
             }

@@ -1,24 +1,23 @@
 # Wiggle Master para After Effects
 
-**Versão:** v5.0 (Edição Universal)
+**Versão:** v5.1 (Edição Direct Action)
 **Criadores:** Pedro Isaias, Gino De Sicco (@gino.sicco) & Elton JSON
 
-O Wiggle Master v5.0 é a evolução definitiva da automação de wiggles no After Effects. Ele vai além das propriedades padrão de transformação para oferecer **controle universal** sobre qualquer propriedade animável na sua timeline, tudo conectado a um hub de controle central e em loop.
+O Wiggle Master v5.1 é a evolução definitiva da automação de wiggles no After Effects. Ele vai além das propriedades padrão de transformação para oferecer **controle universal** sobre qualquer propriedade animável na sua timeline, tudo conectado a um hub de controle central e em loop.
 
-## 🚀 Evoluções na v5.0
+## 🚀 Evoluções na v5.1
 
-### 1. ★ Wiggle Universal
+### 1. UI de Ação Direta (Novo na v5.1)
+- **Gatilhos Imediatos:** Checkboxes foram removidos para um workflow mais veloz. Clique em **Posição, Escala, Rotação ou Opacidade** para aplicar o wiggle instantaneamente.
+- **Limpar Selecionado:** Nova lógica de limpeza. Selecione qualquer propriedade na timeline e clique em **"Limpar Selecionado"** para remover sua expressão de wiggle.
+
+### 2. ★ Wiggle Universal
 - **Alvo Total:** Selecione *qualquer* propriedade na sua timeline (Sliders de efeitos, Stroke Width, Puppet Pins, etc.) e clique em **"Wiggle Selecionado"**.
 - **Criação Dinâmica de Sliders:** O script gera automaticamente um slider de "Amount" dedicado no Wiggle Master para cada nova propriedade vinculada.
 
-### 2. Unlink Universal (Dimensões Inteligentes)
+### 3. Unlink Universal (Dimensões Inteligentes)
 - **Detecção Automática:** A função "Separar Dimensões" agora é universal. Se marcada, aplicará wiggles independentes em cada eixo de qualquer propriedade multidimensional (2D, 3D ou arrays).
-- **Modo Vinculado:** Se desmarcada, propriedades multidimensionais (como Escala) farão o wiggle de forma uniforme baseando-se na primeira dimensão.
-
-### 3. Interface Compacta e Reorganizada
-- **Transformação Rápida:** Seção dedicada para as propriedades mais comuns (Posição, Escala, Rotação, Opacidade).
-- **Design Focado em Ação:** Botão "Wiggle Selecionado" em destaque para o novo fluxo universal.
-- **Limpeza Refinada:** Funções "Limpar Marcados" e "Limpar Tudo" aprimoradas para gerenciar expressões com precisão cirúrgica.
+- **Modo Vinculado:** Se desmarcada, propriedades multidimensionais farão o wiggle de forma uniforme.
 
 ## 🛠️ Funcionalidades Base (Sempre Presentes)
 - **Master Null Centralizado:** Frequência, Duração do Loop e Posterize Time controlados globalmente.
