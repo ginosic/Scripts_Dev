@@ -1,21 +1,28 @@
 # coloRayer for After Effects
 
-**Version:** v1.6
+**Version:** v2.0
 **Developers:** Gino De Sicco & Elton JSON
 
-coloRayer is a smart palette for Adobe After Effects that streamlines the process of labeling layers, keyframes and compositions. Unlike standard label scripts, coloRayer reads your local AE preferences to display the **exact** label colors you have configured, ensuring what you see is what you get.
+coloRayer is a smart, context-aware palette for Adobe After Effects that streamlines labeling layers, keyframes, and project items. It reads your local AE preferences to display the **exact** label colors you have configured.
 
 ## 🚀 Features
 
-### 1. Contextual Layer Coloring
-- **One-Click Labeling:** Apply label colors to selected layers or keyframes instantly.
-- **Live Color Sync:** The panel fetches the actual hex codes from your After Effects "Label Preferences". If you have custom label colors set up in AE, coloRayer will match them perfectly.
-- **Full Spectrum:** Access all 16 label colors + "None" (Grey) in a compact grid.
+### 1. Smart Inject System (New in v2.0)
+The script now automatically identifies the best target for coloring based on a priority system:
+**Keyframes > Layers > Project Selection > Active Comp.**
 
-### 2. "Alice" Mode (Recursive Comp Coloring)
-- **The Rabbit Hole:** Click the **✦** button to enter Alice mode.
-- **Recursive Power:** Select a composition in the Project Panel and choose a color. Alice will dive into that composition and recursively label **that comp and all its pre-comps/dependencies** with the chosen color.
-- **Organization Savior:** Perfect for color-coding entire branches of a project (e.g., "All Character Pre-comps = Blue", "All BG Pre-comps = Green").
+#### **🎮 Modifier Keys (The Pro Way):**
+You can override the automatic logic using keyboard modifiers:
+- **Normal Click:** Automatic priority.
+- **ALT / OPT + Click:** Forces coloring to the **Project Panel Selection** (ignores timeline).
+- **SHIFT + Click:** Forces coloring to the **Active Composition** (the item in the project panel).
+
+### 2. Group Infect (Enhanced Alice Mode)
+- **The Core:** Click the **✦** button to color an entire hierarchy.
+- **Contextual Target:**
+    - If a **Pre-comp layer** is selected in the timeline, it targets that comp and all its nested sub-comps.
+    - If nothing is selected, it targets the **Active Comp** and its hierarchy.
+- **Recursive Power:** Dives into dependencies to ensure entire project branches are color-coded consistently.
 
 ## 📦 Installation
 
@@ -23,20 +30,12 @@ coloRayer is a smart palette for Adobe After Effects that streamlines the proces
    - **Mac:** `/Applications/Adobe After Effects [Year]/Scripts/ScriptUI Panels/`
    - **Windows:** `C:\Program Files\Adobe\Adobe After Effects [Year]\Support Files\Scripts\ScriptUI Panels\`
 2. Restart After Effects.
-3. Open via the **Window** menu (bottom of the list).
+3. Open via the **Window** menu.
 
-## 💡 Usage
-
-**For Layers:**
-1. Open a composition.
-2. Select one or more layers or keyframes.
-3. Click a color swatch in the coloRayer panel.
-
-**For Comps (Alice Mode):**
-1. Select a **single composition** in the Project Panel.
-2. Click the **✦** button at the bottom of the panel.
-3. Pick a color from the pop-up window.
-4. Watch as the comp and all its nested pre-comps are labeled automatically.
+## 💡 Usage Tips
+- **Tooltips:** Hover over any color swatch to see the available shortcuts.
+- **Zero Label:** The first (grey) swatch clears the label (sets to 0/None).
+- **Cross-Platform:** Works on both Windows and macOS (Option = Alt).
 
 ---
 *Made with ❤️ and ExtendScript.*

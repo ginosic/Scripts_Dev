@@ -1,6 +1,6 @@
 /*
- * coloRayer v1.6
- * A script to quickly apply label colors to After Effects layers and comps.
+ * coloRayer v2.0
+ * A script to quickly apply label colors to After Effects layers, comps, and project items.
  * Developed by: Gino De Sicco (@gino.sicco) and Elton JSON
  */
 
@@ -39,55 +39,75 @@
         } catch(e) { return null; }
     }
 
-    function applyLabelColor(labelNum) {
-        var comp = app.project.activeItem;
-        if (!(comp && comp instanceof CompItem)) {
-            alert("Please select a composition first.");
-            return;
-        }
-        var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0) {
-            alert("Please select one or more layers to color.");
-            return;
-        }
+    function applyLabelColor(labelNum, kbState) {
+        var appProj = app.project;
+        var activeItem = appProj.activeItem;
+        var altPressed = kbState.altKey; // Option on Mac
+        var shiftPressed = kbState.shiftKey;
         
-        app.beginUndoGroup("coloRayer: Apply Label");
+        app.beginUndoGroup("coloRayer: Smart Apply");
 
-        var appliedToKeyframes = false;
+        try {
+            // FORCE 1: Shift -> Current Comp Item in Project
+            if (shiftPressed) {
+                if (activeItem) activeItem.label = labelNum;
+                return;
+            }
 
-        // Step 1: Check for selected keyframes in selected layers
-        for (var i = 0; i < selectedLayers.length; i++) {
-            var layer = selectedLayers[i];
-            var selProps = layer.selectedProperties;
-            
-            for (var p = 0; p < selProps.length; p++) {
-                var prop = selProps[p];
+            // FORCE 2: Alt -> Project Selection
+            if (altPressed) {
+                var projSel = appProj.selection;
+                for (var s = 0; s < projSel.length; s++) projSel[s].label = labelNum;
+                return;
+            }
+
+            // AUTOMATIC MODE (Priority: Keys > Layers > Project Selection > Active Comp)
+            if (activeItem instanceof CompItem) {
+                var selLayers = activeItem.selectedLayers;
                 
-                // Ensure it's an animatable property with keys
-                if (prop.propertyType === PropertyType.PROPERTY && prop.numKeys > 0) {
-                    var selKeys = prop.selectedKeys;
-                    
-                    if (selKeys !== null && selKeys.length > 0) {
-                        for (var k = 0; k < selKeys.length; k++) {
-                            // Check if the AE version supports keyframe labeling
-                            if (typeof prop.setLabelAtKey === "function") {
-                                prop.setLabelAtKey(selKeys[k], labelNum);
-                                appliedToKeyframes = true;
+                // 1. Check for Layers/Keys
+                if (selLayers.length > 0) {
+                    var appliedToKeyframes = false;
+                    for (var i = 0; i < selLayers.length; i++) {
+                        var layer = selLayers[i];
+                        var selProps = layer.selectedProperties;
+                        for (var p = 0; p < selProps.length; p++) {
+                            var prop = selProps[p];
+                            if (prop.propertyType === PropertyType.PROPERTY && prop.numKeys > 0) {
+                                var selKeys = prop.selectedKeys;
+                                if (selKeys !== null && selKeys.length > 0) {
+                                    for (var k = 0; k < selKeys.length; k++) {
+                                        if (typeof prop.setLabelAtKey === "function") {
+                                            prop.setLabelAtKey(selKeys[k], labelNum);
+                                            appliedToKeyframes = true;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                    if (!appliedToKeyframes) {
+                        for (var i = 0; i < selLayers.length; i++) selLayers[i].label = labelNum;
+                    }
+                    return;
                 }
             }
-        }
 
-        // Step 2: If no keyframes were colored, fallback to standard layer coloring
-        if (!appliedToKeyframes) {
-            for (var i = 0; i < selectedLayers.length; i++) {
-                selectedLayers[i].label = labelNum;
+            // 2. Fallback to Project Selection
+            var projSel = appProj.selection;
+            if (projSel.length > 0) {
+                for (var s = 0; s < projSel.length; s++) projSel[s].label = labelNum;
+                return;
             }
-        }
 
-        app.endUndoGroup();
+            // 3. Last Resort: Color the active comp itself
+            if (activeItem) activeItem.label = labelNum;
+
+        } catch (e) {
+            // Silently fail
+        } finally {
+            app.endUndoGroup();
+        }
     }
 
     function customDraw() {
@@ -115,7 +135,7 @@
             }
         }
         _recursiveDive(startComp);
-        app.beginUndoGroup("Alice: Color Pre-comps");
+        app.beginUndoGroup("coloRayer: Hierarchy Apply");
         for (var i = 0; i < foundComps.length; i++) {
             foundComps[i].label = labelNum;
         }
@@ -130,7 +150,13 @@
         if (!colorRgb || colorRgb.length !== 4) { colorRgb = [0.5, 0.5, 0.5, 1]; }
         swatchButton.fillBrush = swatchButton.graphics.newBrush(swatchButton.graphics.BrushType.SOLID_COLOR, colorRgb);
         swatchButton.onDraw = customDraw;
-        swatchButton.onClick = onClickCallback;
+        swatchButton.onClick = function() {
+            onClickCallback(this.labelNum, ScriptUI.environment.keyboardState);
+        };
+        
+        // Dynamic Tooltip
+        var tip = (labelNum === 0) ? "Clear Label" : "Apply Label " + labelNum;
+        swatchButton.helpTip = tip + "\n• ALT/OPT: Force Project Selection\n• SHIFT: Force Active Comp";
     }
 
     // ===================================================================
@@ -138,11 +164,11 @@
     // ===================================================================
 
     function createAliceColorPicker(targetComp) {
-        var pickerWin = new Window("dialog", "Alice: Choose a Color");
+        var pickerWin = new Window("dialog", "Group Color: " + targetComp.name);
         pickerWin.orientation = "column";
         
-        var onAliceSwatchClick = function() {
-            runAliceColoring(targetComp, this.labelNum);
+        var onAliceSwatchClick = function(lbl) {
+            runAliceColoring(targetComp, lbl);
             pickerWin.close();
         };
 
@@ -165,9 +191,7 @@
     }
 
     function createColoRayerWindow(thisObj) {
-        // This is the magic line. It checks if the script is running inside an
-        // existing panel. If so, it uses that panel. If not, it creates a new one.
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "coloRayer", undefined, { resizeable: true });
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "coloRayer v2.0", undefined, { resizeable: true });
         
         if (win !== null) {
             win.orientation = "column";
@@ -180,8 +204,8 @@
             mainSwatchGroup.alignment = ['fill', 'fill'];
             mainSwatchGroup.alignChildren = ['fill', 'fill'];
             
-            var onMainSwatchClick = function() {
-                applyLabelColor(this.labelNum);
+            var onMainSwatchClick = function(lbl, kbState) {
+                applyLabelColor(lbl, kbState);
             };
 
             createSwatch(mainSwatchGroup, 0, "666666", null, onMainSwatchClick);
@@ -190,26 +214,30 @@
             }
             
             var aliceButton = mainSwatchGroup.add("button", undefined, "✦");
-            aliceButton.helpTip = "Run Alice (Recursive Comp Coloring)";
+            aliceButton.helpTip = "Infect Hierarchy (Recursive)\n• Select a Pre-comp layer OR nothing for Active Comp.";
             
             var defaultFont = aliceButton.graphics.font;
             aliceButton.graphics.font = ScriptUI.newFont(defaultFont.name, defaultFont.style, defaultFont.size + 4);
             
-            aliceButton.enabled = false;
-            aliceButton.enabled = true;
-
             aliceButton.onClick = function() {
-                var selection = app.project.selection;
-                if (selection.length !== 1 || !(selection[0] instanceof CompItem)) {
-                    alert("Please select a single composition in the Project Panel first.");
-                    return;
+                var activeComp = app.project.activeItem;
+                var target = activeComp; // Default to active comp
+
+                // If a pre-comp layer is selected, use its source as target
+                if (activeComp instanceof CompItem && activeComp.selectedLayers.length === 1) {
+                    var l = activeComp.selectedLayers[0];
+                    if (l.source instanceof CompItem) target = l.source;
                 }
-                createAliceColorPicker(selection[0]);
+                
+                if (target instanceof CompItem) {
+                    createAliceColorPicker(target);
+                } else {
+                    alert("Please select a composition or a pre-comp layer.");
+                }
             };
             
             win.onResizing = function () { this.layout.resize(); };
             
-            // This logic ensures the window is shown correctly whether it's new or docked
             if (win instanceof Window) {
                 win.center();
                 win.show();
