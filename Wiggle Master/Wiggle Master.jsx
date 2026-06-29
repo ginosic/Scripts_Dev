@@ -178,14 +178,17 @@ var S = (app.language === Language.PORTUGUESE) ? lingo.pt : lingo.en;
 
     function applyExpression(prop, amtSlider, forceUnlink) {
         var isMulti = prop.value.length > 1;
-        var doUnlink = isMulti && forceUnlink;
+        var isScale = (prop.matchName === "ADBE Scale");
+        
+        // Sync dimensions (uniform wiggle) only for Scale by default.
+        // For Position and others, or if Unlink is checked, use independent wiggle.
+        var doSync = isMulti && !forceUnlink && isScale;
 
         var wiggleCore = '';
-        if (doUnlink) {
-            wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),w2=wiggle(freq,amp,1,.5,t-secondsToLoop),res=[];for(var i=0;i<value.length;i++){res[i]=linear(t,0,secondsToLoop,w1[i],w2[i])}res;';
-        } else if (isMulti) {
+        if (doSync) {
             wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),v1=w1[0],lW1=[];for(var i=0;i<value.length;i++){lW1[i]=v1}var w2=wiggle(freq,amp,1,.5,t-secondsToLoop),v2=w2[0],lW2=[];for(var i=0;i<value.length;i++){lW2[i]=v2}linear(t,0,secondsToLoop,lW1,lW2);';
         } else {
+            // linear() natively handles both scalars and arrays in AE expressions.
             wiggleCore = 'var w1=wiggle(freq,amp,1,.5,t),w2=wiggle(freq,amp,1,.5,t-secondsToLoop);linear(t,0,secondsToLoop,w1,w2);';
         }
 
